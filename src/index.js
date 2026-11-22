@@ -59,7 +59,7 @@ async function readCert(request, secret) {
 const newPin = (len = 4) => { len = Math.min(6, Math.max(4, Number(len) || 4)); return String(crypto.getRandomValues(new Uint32Array(1))[0] % (10 ** len)).padStart(len, '0'); };
 // 規則代碼：前綴＋座號（補足位數），例如 501＋01 → 50101
 const rulePin = (prefix, digits, seat) => cleanPin(String(prefix || '').trim().toUpperCase() + String(seat).padStart(Number(digits) || 2, '0'));
-const cleanPin = v => { const p = String(v ?? '').trim().toUpperCase(); return /^[A-Z0-9]{1,6}$/.test(p) ? p : null; };
+const cleanPin = v => { const p = String(v ?? '').trim().toUpperCase(); return /^[A-Z0-9]{1,8}$/.test(p) ? p : null; };
 const VERSIONS = { zh: ['含標點', '空格版'], en: ['英文'] };
 // 某班每位學生在某類型的最佳成績
 const classBestSQL = `SELECT seat_no, nickname, speed, accuracy, level, article_title, time_limit, created_at, attempts FROM (
@@ -242,7 +242,7 @@ export default {
         const b = await readJson(request);
         const name = cleanText(b.name, 20), count = int(b.count ?? 0, 0, 60), plen = int(b.pinLength, 4, 6) || 4;
         const useRule = b.rulePrefix !== undefined && b.rulePrefix !== null;
-        if (useRule && count && !rulePin(b.rulePrefix, b.seatDigits, count)) return json({ ok: false, error: '前綴加上座號後不能超過 6 碼，且只能用英文字母或數字' }, 400);
+        if (useRule && count && !rulePin(b.rulePrefix, b.seatDigits, count)) return json({ ok: false, error: '前綴加上座號後不能超過 8 碼，且只能用英文字母或數字' }, 400);
         if (!name || count === null) return json({ ok: false, error: '請輸入班級名稱，人數為 0–60（填 0 可之後再匯入名單）' }, 400);
         if (await env.DB.prepare('SELECT 1 FROM classes WHERE name = ?').bind(name).first()) return json({ ok: false, error: '已經有同名的班級' }, 409);
         const code = 'C' + Date.now().toString(36);
@@ -264,7 +264,7 @@ export default {
           if (b.rulePrefix !== undefined) {
             const { results } = await env.DB.prepare('SELECT id, seat_no FROM students WHERE class_id = ?').bind(cid).all();
             const pins = results.map(r => [r.id, rulePin(b.rulePrefix, b.seatDigits, r.seat_no)]);
-            if (pins.some(([, p]) => !p)) return json({ ok: false, error: '前綴加上座號後不能超過 6 碼，且只能用英文字母或數字' }, 400);
+            if (pins.some(([, p]) => !p)) return json({ ok: false, error: '前綴加上座號後不能超過 8 碼，且只能用英文字母或數字' }, 400);
             if (pins.length) await env.DB.batch(pins.map(([id, p]) => env.DB.prepare('UPDATE students SET pin = ?, fail_count = 0, locked_until = NULL WHERE id = ?').bind(p, id)));
           }
           if (b.regenPins) {
@@ -292,7 +292,7 @@ export default {
           if (!seat) return json({ ok: false, error: '請輸入座號' }, 400);
           if (await env.DB.prepare('SELECT 1 FROM students WHERE class_id = ? AND seat_no = ?').bind(cid, seat).first()) return json({ ok: false, error: '這個座號已經存在' }, 409);
           const pin = b.pin ? cleanPin(b.pin) : newPin(b.pinLength);
-          if (!pin) return json({ ok: false, error: '代碼只能是 1–6 個英文字母或數字' }, 400);
+          if (!pin) return json({ ok: false, error: '代碼只能是 1–8 個英文字母或數字' }, 400);
           await env.DB.prepare('INSERT INTO students (nickname, class_id, seat_no, pin) VALUES (?,?,?,?)').bind(cleanNick(b.nickname) || `${seat}號`, cid, seat, pin).run();
           return json({ ok: true });
         }
@@ -347,7 +347,7 @@ export default {
           if (b.resetPin) await env.DB.prepare('UPDATE students SET pin = ?, fail_count = 0, locked_until = NULL WHERE id = ?').bind(newPin(b.pinLength), sid).run();
           if (b.pin !== undefined) {
             const pin = cleanPin(b.pin);
-            if (!pin) return json({ ok: false, error: '代碼只能是 1–6 個英文字母或數字' }, 400);
+            if (!pin) return json({ ok: false, error: '代碼只能是 1–8 個英文字母或數字' }, 400);
             await env.DB.prepare('UPDATE students SET pin = ?, fail_count = 0, locked_until = NULL WHERE id = ?').bind(pin, sid).run();
           }
           if (b.unlock) await env.DB.prepare('UPDATE students SET fail_count = 0, locked_until = NULL WHERE id = ?').bind(sid).run();
