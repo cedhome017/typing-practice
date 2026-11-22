@@ -39,6 +39,19 @@ npx wrangler deploy
 
 部署後可開啟 `/api/health` 確認資料庫連線。
 
+學生以「暱稱」識別（`0002_nickname_identity.sql`），班級與座號欄位保留，未來跨班使用時再啟用。
+
+## API
+
+| 方法 | 路徑 | 說明 |
+|---|---|---|
+| POST | `/api/exam` | 上傳檢定成績（速度、正確率、等級由伺服器重新計算） |
+| POST | `/api/practice` | 上傳練習成績（只記錄，不排行） |
+| GET | `/api/leaderboard?lang=zh&version=含標點&time=5` | 檢定排行榜，每人取最佳一次，正確率需達 80% |
+| POST | `/api/teacher/login` | 教師登入 |
+| GET | `/api/teacher/exams` | 教師：最近 200 筆檢定成績 |
+| DELETE | `/api/teacher/exams/:id` | 教師：刪除一筆檢定成績 |
+
 ## 等級標準
 
 | 等級 | 入門 | 初級 | 中級 | 高級 | 高手 | 專家 | 達人 | 大師 |
