@@ -131,7 +131,7 @@ kbd{display:inline-block;border:1px solid var(--line);border-bottom-width:3px;bo
  <nav id="nav">
   <a href="#home" data-r="home">首頁</a><a href="#keys" data-r="keys">指法</a>
   <a href="#zhuyin" data-r="zhuyin">注音鍵位</a><a href="#chinese" data-r="chinese">中打</a><a href="#punct" data-r="punct">標點符號</a>
-  <a href="#english" data-r="english">英打</a><a href="#exam" data-r="exam">檢定</a><a href="#records" data-r="records">成績</a><a href="#teacher" data-r="teacher">教師</a>
+  <a href="#english" data-r="english">英打</a><a href="#exam" data-r="exam">檢定</a><a href="#records" data-r="records">成績</a>
  </nav>
  <button class="who" id="who" type="button">座號／暱稱：未設定</button>
 </div></header>
@@ -489,7 +489,7 @@ function vRecords(){
 /* 教師 */
 function vTeacher(){
  const draw=()=>{const cus=store.get(K.art,[]);
-  app.innerHTML=`<div class="card"><h2>教師：自訂檢定文章</h2><p class="lead">新增的文章會出現在「檢定」的文章清單。資料存在這台電腦的瀏覽器；要放到其他電腦，請用下方的匯出／匯入。</p>
+  app.innerHTML=`<div class="row" style="justify-content:space-between;margin-bottom:12px"><span class="badge">已登入教師模式</span><button class="btn sm" id="tout">登出</button></div><div class="card"><h2>教師：自訂檢定文章</h2><p class="lead">新增的文章會出現在「檢定」的文章清單。資料存在這台電腦的瀏覽器；要放到其他電腦，請用下方的匯出／匯入。</p>
   <div class="row" style="gap:12px;margin-bottom:10px"><label class="f">標題<input type="text" id="ta" maxlength="30" placeholder="例如：我的志願"></label>
   <label class="f">語言<select id="tl"><option value="zh">中文</option><option value="en">英文</option></select></label>
   <label class="f">年段<select id="tgd"><option>中年級</option><option>高年級</option></select></label></div>
@@ -497,6 +497,7 @@ function vTeacher(){
   <div class="row" style="margin-top:10px"><button class="btn pri" id="tadd">新增文章</button><span class="muted" id="tmsg"></span></div></div>
   <div class="card"><h3>已新增的文章（${cus.length} 篇）</h3>${cus.length?`<table><tbody>${cus.map((a,i)=>`<tr><td><b>${esc(a.title)}</b><br><span class="muted">${a.lang==='zh'?'中文':'英文'}・${esc(a.grade)}・${countChars(a,'含標點')} ${a.lang==='zh'?'字':'字元'}</span></td><td style="text-align:right"><button class="btn sm" data-del="${i}">刪除</button></td></tr>`).join('')}</tbody></table>`:'<p class="muted">目前沒有自訂文章。</p>'}</div>
   <div class="card"><h3>匯出／匯入</h3><p class="muted">按「匯出」會把自訂文章放進下方文字框並複製；在另一台電腦貼上後按「匯入」。</p><textarea id="tio" placeholder="[ ... ]"></textarea><div class="row" style="margin-top:10px"><button class="btn" id="texp">匯出</button><button class="btn" id="timp">匯入</button><span class="muted" id="iomsg"></span></div></div>`;
+  $('#tout').onclick=()=>{ss.del(TK);location.href='/'};
   $('#tadd').onclick=()=>{const title=$('#ta').value.trim(),lines=$('#tt').value.split('\n').map(s=>s.trim()).filter(Boolean);if(!title||!lines.length){$('#tmsg').textContent='請填寫標題和內文。';return}
    cus.push({id:'c'+Date.now(),lang:$('#tl').value,grade:$('#tgd').value,title,lines});store.set(K.art,cus);draw();$('#tmsg').textContent='已新增「'+title+'」。'};
   $$('[data-del]').forEach(b=>b.onclick=()=>confirmBox('確定刪除「'+cus[b.dataset.del].title+'」？',()=>{cus.splice(+b.dataset.del,1);store.set(K.art,cus);draw()}));
@@ -505,8 +506,28 @@ function vTeacher(){
  draw();
 }
 
-const ROUTES={home:vHome,keys:vKeys,english:vEnglish,zhuyin:vZhuyin,chinese:vChinese,punct:vPunct,exam:vExam,records:vRecords,teacher:vTeacher};
-function route(){const r=(location.hash||'#home').slice(1);const fn=ROUTES[r]||vHome;if(cleanup){cleanup();cleanup=null}closeModal();
+/* 教師登入：只有網址 /teacher 才開放，由 Cloudflare Worker 驗證密碼 */
+const IS_T=/^\/teacher\/?$/.test(location.pathname),TK='typing.tToken';
+const ss={get(k){try{return sessionStorage.getItem(k)}catch(e){return null}},set(k,v){try{sessionStorage.setItem(k,v)}catch(e){}},del(k){try{sessionStorage.removeItem(k)}catch(e){}}};
+function vLogin(msg){
+ app.innerHTML=`<div class="card" style="max-width:460px;margin:auto"><h2>教師登入</h2><p class="lead">請輸入教師密碼。登入後可以新增、刪除與匯出檢定文章。</p>
+ <form id="lf"><input type="password" id="lp" autocomplete="current-password" placeholder="教師密碼" style="width:100%;font-size:16px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;min-height:44px;background:var(--panel)">
+ <div class="row" style="margin-top:12px"><button class="btn pri" type="submit">登入</button><span class="muted" id="lm">${esc(msg||'')}</span></div></form></div>`;
+ const lp=$('#lp');lp.focus();
+ $('#lf').onsubmit=async e=>{e.preventDefault();if(!lp.value)return;$('#lm').textContent='驗證中…';
+  try{const r=await fetch('/api/teacher/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:lp.value})});const d=await r.json();
+   if(d.ok){ss.set(TK,d.token);vTeacher()}else{$('#lm').textContent=d.error||'密碼錯誤';lp.value='';lp.focus()}}
+  catch(err){$('#lm').textContent='無法連線到伺服器，請稍後再試。'}};
+}
+async function vTeacherGate(){
+ const t=ss.get(TK);if(!t)return vLogin();app.innerHTML='<div class="card"><p class="muted">驗證中…</p></div>';
+ try{const r=await fetch('/api/teacher/verify',{headers:{authorization:'Bearer '+t}});const d=await r.json();if(d.ok)return vTeacher();}catch(e){}
+ ss.del(TK);vLogin('登入已過期，請重新登入。');
+}
+if(IS_T){$('#nav').insertAdjacentHTML('beforeend','<a href="#teacher" data-r="teacher">教師</a>')}
+const ROUTES={home:vHome,keys:vKeys,english:vEnglish,zhuyin:vZhuyin,chinese:vChinese,punct:vPunct,exam:vExam,records:vRecords};
+if(IS_T)ROUTES.teacher=vTeacherGate;
+function route(){const r=(location.hash||(IS_T?'#teacher':'#home')).slice(1);const fn=ROUTES[r]||vHome;if(cleanup){cleanup();cleanup=null}closeModal();
  $$('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.r===(ROUTES[r]?r:'home')));fn();window.scrollTo(0,0)}
 document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g){if(location.hash.slice(1)===g.dataset.go)route();else location.hash=g.dataset.go}});
 window.addEventListener('hashchange',route);

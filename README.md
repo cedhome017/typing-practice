@@ -20,6 +20,12 @@ npx wrangler deploy
 
 或在 Cloudflare 主控台 Workers & Pages → Create → Import a repository，選擇本專案即可自動部署。
 
+## 教師登入
+
+教師頁面不顯示在選單中，請在網址後加上 `/teacher` 進入，例如 `https://typing-practice.cedhome017.workers.dev/teacher`。
+
+密碼存放在 Cloudflare 的 Secret `TEACHER_PASSWORD`（Workers & Pages → typing-practice → Settings → Variables and Secrets）。登入有效 8 小時。
+
 ## D1 資料庫 `typing-practice-db`
 
 已建立以下資料表（不存真實姓名，只存班級代碼＋座號＋暱稱）：
