@@ -43,6 +43,28 @@ async function studentId(env, nickname) {
   const row = await env.DB.prepare('SELECT id FROM students WHERE class_id IS NULL AND nickname = ?').bind(nickname).first();
   return row.id;
 }
+const CERT_HOURS = 3; // 認證模式登入有效時間
+async function makeCert(secret, sid, cid) {
+  const exp = Date.now() + CERT_HOURS * 3600 * 1000;
+  return `${sid}.${cid}.${exp}.${await hmac(secret, `cert:${sid}:${cid}:${exp}`)}`;
+}
+async function readCert(request, secret) {
+  const t = request.headers.get('x-cert-token');
+  if (!t || !secret) return null;
+  const [sid, cid, exp, sig] = t.split('.');
+  if (!sig || Number(exp) < Date.now()) return null;
+  if (!safeEqual(sig, await hmac(secret, `cert:${sid}:${cid}:${exp}`))) return null;
+  return { sid: Number(sid), cid: Number(cid) };
+}
+const newPin = () => String(crypto.getRandomValues(new Uint32Array(1))[0] % 10000).padStart(4, '0');
+const VERSIONS = { zh: ['含標點', '空格版'], en: ['英文'] };
+// 某班每位學生在某類型的最佳成績
+const classBestSQL = `SELECT seat_no, nickname, speed, accuracy, level, article_title, time_limit, created_at, attempts FROM (
+  SELECT s.seat_no, s.nickname, e.*, COUNT(*) OVER (PARTITION BY e.student_id) AS attempts,
+         ROW_NUMBER() OVER (PARTITION BY e.student_id ORDER BY e.speed DESC, e.accuracy DESC, e.created_at) AS rn
+  FROM exam_results e JOIN students s ON s.id = e.student_id
+  WHERE e.class_id = ?1 AND e.lang = ?2 AND e.version = ?3 AND e.accuracy >= 80 AND (?4 IS NULL OR e.time_limit = ?4)
+) WHERE rn = 1 ORDER BY speed DESC, accuracy DESC, created_at`;
 async function readJson(request) { try { return await request.json(); } catch (e) { return {}; } }
 async function isTeacher(request, secret) {
   const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
@@ -81,7 +103,9 @@ export default {
     // 上傳檢定成績（速度、正確率、等級由伺服器重新計算）
     if (url.pathname === '/api/exam' && request.method === 'POST') {
       const b = await readJson(request);
-      const nickname = cleanNick(b.nickname);
+      const cert = await readCert(request, secret);
+      if (request.headers.get('x-cert-token') && !cert) return json({ ok: false, error: '認證模式已過期，請重新登入認證模式' }, 401);
+      const nickname = cert ? '認證' : cleanNick(b.nickname);
       const lang = b.lang === 'en' ? 'en' : b.lang === 'zh' ? 'zh' : null;
       const version = lang === 'en' ? '英文' : (b.version === '空格版' ? '空格版' : '含標點');
       const timeLimit = [3, 5, 8, 10].includes(Number(b.timeLimit)) ? Number(b.timeLimit) : null;
@@ -93,10 +117,16 @@ export default {
       if (speed > (lang === 'zh' ? 250 : 200)) return json({ ok: false, error: '速度異常，未列入排行榜' }, 400);
       const accuracy = correct + wrong ? Math.round(correct / (correct + wrong) * 100) : 0;
       const level = levelOf(lang, speed, accuracy);
-      const sid = await studentId(env, nickname);
-      await env.DB.prepare(`INSERT INTO exam_results (student_id, lang, article_id, article_title, grade_band, version, time_limit, duration_sec, correct, wrong, missed, speed, unit, accuracy, level, finished_all)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(sid, lang, cleanText(b.articleId, 40), cleanText(b.articleTitle, 60) || '未命名', cleanText(b.gradeBand, 10), version, timeLimit, duration,
+      const sid = cert ? cert.sid : await studentId(env, nickname);
+      await env.DB.prepare(`INSERT INTO exam_results (student_id, class_id, lang, article_id, article_title, grade_band, version, time_limit, duration_sec, correct, wrong, missed, speed, unit, accuracy, level, finished_all)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(sid, cert ? cert.cid : null, lang, cleanText(b.articleId, 40), cleanText(b.articleTitle, 60) || '未命名', cleanText(b.gradeBand, 10), version, timeLimit, duration,
         correct, wrong, missed, speed, lang === 'zh' ? '字/分' : 'WPM', accuracy, level, b.finishedAll ? 1 : 0).run();
+      if (cert) {
+        const { results } = await env.DB.prepare(classBestSQL).bind(cert.cid, lang, version, null).all();
+        const me = await env.DB.prepare('SELECT seat_no FROM students WHERE id = ?').bind(sid).first();
+        const i = results.findIndex(r => r.seat_no === me.seat_no);
+        return json({ ok: true, cert: true, speed, accuracy, level, listed: accuracy >= 80, best: i >= 0 ? results[i].speed : null, rank: i >= 0 ? i + 1 : null, total: results.length });
+      }
       // 回傳這次成績在該類型中的名次（以每人最佳成績計）
       const best = await env.DB.prepare('SELECT speed FROM v_exam_best WHERE lang = ? AND version = ? AND nickname = ?').bind(lang, version, nickname).first();
       let rank = null;
@@ -127,7 +157,7 @@ export default {
       const { results } = await env.DB.prepare(`SELECT nickname, speed, accuracy, level, article_title, time_limit, created_at FROM (
           SELECT s.nickname, e.*, ROW_NUMBER() OVER (PARTITION BY e.student_id ORDER BY e.speed DESC, e.accuracy DESC, e.created_at) AS rn
           FROM exam_results e JOIN students s ON s.id = e.student_id
-          WHERE e.lang = ?1 AND e.version = ?2 AND e.accuracy >= 80 AND (?3 IS NULL OR e.time_limit = ?3)
+          WHERE e.lang = ?1 AND e.version = ?2 AND e.accuracy >= 80 AND e.class_id IS NULL AND (?3 IS NULL OR e.time_limit = ?3)
         ) WHERE rn = 1 ORDER BY speed DESC, accuracy DESC, created_at LIMIT ?4`).bind(lang, version, time, limit).all();
       return json({ ok: true, lang, version, time, unit: lang === 'zh' ? '字/分' : 'WPM', results });
     }
@@ -136,7 +166,7 @@ export default {
     if (url.pathname === '/api/teacher/exams') {
       if (!(await isTeacher(request, secret))) return json({ ok: false, error: '請先登入教師帳號' }, 401);
       const { results } = await env.DB.prepare(`SELECT e.id, s.nickname, e.lang, e.version, e.time_limit, e.speed, e.accuracy, e.level, e.article_title, e.created_at
-        FROM exam_results e JOIN students s ON s.id = e.student_id ORDER BY e.id DESC LIMIT 200`).all();
+        FROM exam_results e JOIN students s ON s.id = e.student_id WHERE e.class_id IS NULL ORDER BY e.id DESC LIMIT 200`).all();
       return json({ ok: true, results });
     }
     const del = url.pathname.match(/^\/api\/teacher\/exams\/(\d+)$/);
@@ -144,6 +174,134 @@ export default {
       if (!(await isTeacher(request, secret))) return json({ ok: false, error: '請先登入教師帳號' }, 401);
       await env.DB.prepare('DELETE FROM exam_results WHERE id = ?').bind(Number(del[1])).run();
       return json({ ok: true });
+    }
+
+
+    // ===== 認證模式（學生） =====
+    if (url.pathname === '/api/classes') {
+      const { results } = await env.DB.prepare('SELECT id, name FROM classes ORDER BY name').all();
+      return json({ ok: true, results });
+    }
+    const seatsM = url.pathname.match(/^\/api\/classes\/(\d+)\/seats$/);
+    if (seatsM) {
+      const { results } = await env.DB.prepare('SELECT seat_no FROM students WHERE class_id = ? AND active = 1 ORDER BY seat_no').bind(Number(seatsM[1])).all();
+      return json({ ok: true, seats: results.map(r => r.seat_no) });
+    }
+    if (url.pathname === '/api/cert/login' && request.method === 'POST') {
+      if (!secret) return json({ ok: false, error: '系統尚未設定完成，請通知老師' }, 503);
+      const b = await readJson(request);
+      const st = await env.DB.prepare(`SELECT s.id, s.class_id, s.seat_no, s.nickname, s.pin, s.fail_count, s.locked_until, c.name AS class_name, c.show_class_rank
+        FROM students s JOIN classes c ON c.id = s.class_id WHERE s.class_id = ? AND s.seat_no = ? AND s.active = 1`).bind(int(b.classId, 1, 1e9), int(b.seat, 1, 200)).first();
+      if (!st) return json({ ok: false, error: '找不到這個班級或座號' }, 404);
+      if (st.locked_until && Date.parse(st.locked_until) > Date.now())
+        return json({ ok: false, error: '代碼輸錯太多次，請 5 分鐘後再試，或請老師協助' }, 429);
+      if (String(b.pin || '') !== st.pin) {
+        const fails = st.fail_count + 1;
+        await env.DB.prepare('UPDATE students SET fail_count = ?, locked_until = ? WHERE id = ?')
+          .bind(fails >= 5 ? 0 : fails, fails >= 5 ? new Date(Date.now() + 5 * 60000).toISOString() : null, st.id).run();
+        await new Promise(r => setTimeout(r, 600));
+        return json({ ok: false, error: fails >= 5 ? '代碼輸錯 5 次，請 5 分鐘後再試' : `代碼錯誤（還可以再試 ${5 - fails} 次）` }, 401);
+      }
+      await env.DB.prepare('UPDATE students SET fail_count = 0, locked_until = NULL WHERE id = ?').bind(st.id).run();
+      return json({ ok: true, token: await makeCert(secret, st.id, st.class_id), hours: CERT_HOURS,
+        student: { className: st.class_name, seat: st.seat_no, nickname: st.nickname || '' }, showClassRank: !!st.show_class_rank });
+    }
+    if (url.pathname === '/api/cert/ranking') {
+      const cert = await readCert(request, secret);
+      if (!cert) return json({ ok: false, error: '認證模式已過期，請重新登入' }, 401);
+      const cls = await env.DB.prepare('SELECT name, show_class_rank FROM classes WHERE id = ?').bind(cert.cid).first();
+      if (!cls) return json({ ok: false, error: '找不到班級' }, 404);
+      if (!cls.show_class_rank) return json({ ok: true, open: false, className: cls.name });
+      const lang = url.searchParams.get('lang') === 'en' ? 'en' : 'zh';
+      const version = lang === 'en' ? '英文' : (url.searchParams.get('version') === '空格版' ? '空格版' : '含標點');
+      const time = [3, 5, 8, 10].includes(Number(url.searchParams.get('time'))) ? Number(url.searchParams.get('time')) : null;
+      const { results } = await env.DB.prepare(classBestSQL).bind(cert.cid, lang, version, time).all();
+      const me = await env.DB.prepare('SELECT seat_no FROM students WHERE id = ?').bind(cert.sid).first();
+      return json({ ok: true, open: true, className: cls.name, mySeat: me && me.seat_no, unit: lang === 'zh' ? '字/分' : 'WPM', results });
+    }
+
+    // ===== 教師：班級與學生管理 =====
+    if (url.pathname.startsWith('/api/teacher/classes') || url.pathname.startsWith('/api/teacher/students')) {
+      if (!(await isTeacher(request, secret))) return json({ ok: false, error: '請先登入教師帳號' }, 401);
+      const m = request.method;
+      if (url.pathname === '/api/teacher/classes' && m === 'GET') {
+        const { results } = await env.DB.prepare(`SELECT c.id, c.name, c.show_class_rank, c.created_at,
+            (SELECT COUNT(*) FROM students s WHERE s.class_id = c.id) AS students,
+            (SELECT COUNT(*) FROM exam_results e WHERE e.class_id = c.id) AS exams
+          FROM classes c ORDER BY c.name`).all();
+        return json({ ok: true, results });
+      }
+      if (url.pathname === '/api/teacher/classes' && m === 'POST') {
+        const b = await readJson(request);
+        const name = cleanText(b.name, 20), count = int(b.count, 1, 60);
+        if (!name || !count) return json({ ok: false, error: '請輸入班級名稱與人數（1–60）' }, 400);
+        if (await env.DB.prepare('SELECT 1 FROM classes WHERE name = ?').bind(name).first()) return json({ ok: false, error: '已經有同名的班級' }, 409);
+        const code = 'C' + Date.now().toString(36);
+        const r = await env.DB.prepare('INSERT INTO classes (code, name) VALUES (?, ?)').bind(code, name).run();
+        const cid = r.meta.last_row_id;
+        const stmts = [];
+        for (let i = 1; i <= count; i++) stmts.push(env.DB.prepare('INSERT INTO students (nickname, class_id, seat_no, pin) VALUES (?,?,?,?)').bind(`${i}號`, cid, i, newPin()));
+        await env.DB.batch(stmts);
+        return json({ ok: true, id: cid });
+      }
+      const cm = url.pathname.match(/^\/api\/teacher\/classes\/(\d+)(\/students|\/results)?$/);
+      if (cm) {
+        const cid = Number(cm[1]), sub = cm[2];
+        if (!sub && m === 'PATCH') {
+          const b = await readJson(request);
+          if (b.name !== undefined) await env.DB.prepare('UPDATE classes SET name = ? WHERE id = ?').bind(cleanText(b.name, 20) || '未命名班級', cid).run();
+          if (b.showClassRank !== undefined) await env.DB.prepare('UPDATE classes SET show_class_rank = ? WHERE id = ?').bind(b.showClassRank ? 1 : 0, cid).run();
+          return json({ ok: true });
+        }
+        if (!sub && m === 'DELETE') {
+          await env.DB.batch([
+            env.DB.prepare('DELETE FROM exam_results WHERE class_id = ?').bind(cid),
+            env.DB.prepare('DELETE FROM practice_results WHERE class_id = ?').bind(cid),
+            env.DB.prepare('DELETE FROM students WHERE class_id = ?').bind(cid),
+            env.DB.prepare('DELETE FROM classes WHERE id = ?').bind(cid)]);
+          return json({ ok: true });
+        }
+        if (sub === '/students' && m === 'GET') {
+          const { results } = await env.DB.prepare('SELECT id, seat_no, nickname, pin, active, locked_until FROM students WHERE class_id = ? ORDER BY seat_no').bind(cid).all();
+          return json({ ok: true, results });
+        }
+        if (sub === '/students' && m === 'POST') {
+          const b = await readJson(request);
+          const seat = int(b.seat, 1, 200);
+          if (!seat) return json({ ok: false, error: '請輸入座號' }, 400);
+          if (await env.DB.prepare('SELECT 1 FROM students WHERE class_id = ? AND seat_no = ?').bind(cid, seat).first()) return json({ ok: false, error: '這個座號已經存在' }, 409);
+          await env.DB.prepare('INSERT INTO students (nickname, class_id, seat_no, pin) VALUES (?,?,?,?)').bind(cleanNick(b.nickname) || `${seat}號`, cid, seat, newPin()).run();
+          return json({ ok: true });
+        }
+        if (sub === '/results' && m === 'GET') {
+          const out = {};
+          for (const [lang, vers] of Object.entries(VERSIONS)) for (const v of vers)
+            out[lang === 'en' ? '英打' : `中打（${v}）`] = (await env.DB.prepare(classBestSQL).bind(cid, lang, v, null).all()).results;
+          const { results } = await env.DB.prepare(`SELECT e.id, s.seat_no, s.nickname, e.lang, e.version, e.time_limit, e.speed, e.accuracy, e.level, e.article_title, e.created_at
+            FROM exam_results e JOIN students s ON s.id = e.student_id WHERE e.class_id = ? ORDER BY e.id DESC LIMIT 300`).bind(cid).all();
+          return json({ ok: true, best: out, records: results });
+        }
+      }
+      const sm = url.pathname.match(/^\/api\/teacher\/students\/(\d+)$/);
+      if (sm) {
+        const sid = Number(sm[1]);
+        if (m === 'PATCH') {
+          const b = await readJson(request);
+          if (b.nickname !== undefined) {
+            const st = await env.DB.prepare('SELECT seat_no FROM students WHERE id = ?').bind(sid).first();
+            try { await env.DB.prepare('UPDATE students SET nickname = ? WHERE id = ?').bind(cleanNick(b.nickname) || `${st.seat_no}號`, sid).run(); }
+            catch (e) { return json({ ok: false, error: '同班已經有人使用這個暱稱' }, 409); }
+          }
+          if (b.resetPin) await env.DB.prepare('UPDATE students SET pin = ?, fail_count = 0, locked_until = NULL WHERE id = ?').bind(newPin(), sid).run();
+          if (b.unlock) await env.DB.prepare('UPDATE students SET fail_count = 0, locked_until = NULL WHERE id = ?').bind(sid).run();
+          return json({ ok: true });
+        }
+        if (m === 'DELETE') {
+          await env.DB.batch([env.DB.prepare('DELETE FROM exam_results WHERE student_id = ?').bind(sid), env.DB.prepare('DELETE FROM practice_results WHERE student_id = ?').bind(sid), env.DB.prepare('DELETE FROM students WHERE id = ?').bind(sid)]);
+          return json({ ok: true });
+        }
+      }
+      return json({ ok: false, error: '找不到這個 API' }, 404);
     }
 
     if (url.pathname === '/api/health') {

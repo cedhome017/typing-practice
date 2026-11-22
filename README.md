@@ -41,6 +41,13 @@ npx wrangler deploy
 
 學生以「暱稱」識別（`0002_nickname_identity.sql`），班級與座號欄位保留，未來跨班使用時再啟用。
 
+## 認證模式
+
+- 老師在 `/teacher` 建立班級與人數，系統自動產生每個座號的 4 位數代碼（可重設、可列印代碼卡）。
+- 學生按右上角「認證模式」→ 選班級、座號 → 輸入代碼。認證中只開放「檢定」與「班級成績」，關閉分頁或 3 小時後自動退出。
+- 代碼連續輸錯 5 次暫停 5 分鐘。
+- 老師可逐班開放／關閉「學生查看全班成績」。認證成績不列入一般排行榜。
+
 ## API
 
 | 方法 | 路徑 | 說明 |
@@ -51,6 +58,14 @@ npx wrangler deploy
 | POST | `/api/teacher/login` | 教師登入 |
 | GET | `/api/teacher/exams` | 教師：最近 200 筆檢定成績 |
 | DELETE | `/api/teacher/exams/:id` | 教師：刪除一筆檢定成績 |
+| GET | `/api/classes`、`/api/classes/:id/seats` | 認證模式：班級與座號清單 |
+| POST | `/api/cert/login` | 認證模式登入（班級＋座號＋代碼） |
+| GET | `/api/cert/ranking` | 認證模式：全班成績（老師開放時） |
+| GET/POST | `/api/teacher/classes` | 教師：班級列表／建立班級 |
+| PATCH/DELETE | `/api/teacher/classes/:id` | 教師：改名、開關全班成績、刪除班級 |
+| GET/POST | `/api/teacher/classes/:id/students` | 教師：學生與代碼／新增座號 |
+| GET | `/api/teacher/classes/:id/results` | 教師：班級認證成績 |
+| PATCH/DELETE | `/api/teacher/students/:id` | 教師：改暱稱、重設代碼、解鎖、刪除 |
 
 ## 等級標準
 
