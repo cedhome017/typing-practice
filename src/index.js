@@ -240,20 +240,20 @@ export default {
       }
       if (url.pathname === '/api/teacher/classes' && m === 'POST') {
         const b = await readJson(request);
-        const name = cleanText(b.name, 20), count = int(b.count, 1, 60), plen = int(b.pinLength, 4, 6) || 4;
+        const name = cleanText(b.name, 20), count = int(b.count ?? 0, 0, 60), plen = int(b.pinLength, 4, 6) || 4;
         const useRule = b.rulePrefix !== undefined && b.rulePrefix !== null;
-        if (useRule && !rulePin(b.rulePrefix, b.seatDigits, count)) return json({ ok: false, error: '前綴加上座號後不能超過 6 碼，且只能用英文字母或數字' }, 400);
-        if (!name || !count) return json({ ok: false, error: '請輸入班級名稱與人數（1–60）' }, 400);
+        if (useRule && count && !rulePin(b.rulePrefix, b.seatDigits, count)) return json({ ok: false, error: '前綴加上座號後不能超過 6 碼，且只能用英文字母或數字' }, 400);
+        if (!name || count === null) return json({ ok: false, error: '請輸入班級名稱，人數為 0–60（填 0 可之後再匯入名單）' }, 400);
         if (await env.DB.prepare('SELECT 1 FROM classes WHERE name = ?').bind(name).first()) return json({ ok: false, error: '已經有同名的班級' }, 409);
         const code = 'C' + Date.now().toString(36);
         const r = await env.DB.prepare('INSERT INTO classes (code, name) VALUES (?, ?)').bind(code, name).run();
         const cid = r.meta.last_row_id;
         const stmts = [];
         for (let i = 1; i <= count; i++) stmts.push(env.DB.prepare('INSERT INTO students (nickname, class_id, seat_no, pin) VALUES (?,?,?,?)').bind(`${i}號`, cid, i, useRule ? rulePin(b.rulePrefix, b.seatDigits, i) : newPin(plen)));
-        await env.DB.batch(stmts);
+        if (stmts.length) await env.DB.batch(stmts);
         return json({ ok: true, id: cid });
       }
-      const cm = url.pathname.match(/^\/api\/teacher\/classes\/(\d+)(\/students|\/results)?$/);
+      const cm = url.pathname.match(/^\/api\/teacher\/classes\/(\d+)(\/students|\/results|\/import)?$/);
       if (cm) {
         const cid = Number(cm[1]), sub = cm[2];
         if (!sub && m === 'PATCH') {
@@ -295,6 +295,35 @@ export default {
           if (!pin) return json({ ok: false, error: '代碼只能是 1–6 個英文字母或數字' }, 400);
           await env.DB.prepare('INSERT INTO students (nickname, class_id, seat_no, pin) VALUES (?,?,?,?)').bind(cleanNick(b.nickname) || `${seat}號`, cid, seat, pin).run();
           return json({ ok: true });
+        }
+        // 匯入座號與代碼（已有的座號更新代碼／暱稱，沒有的新增）
+        if (sub === '/import' && m === 'POST') {
+          const b = await readJson(request);
+          const rows = Array.isArray(b.rows) ? b.rows.slice(0, 200) : [];
+          const errors = [], seen = new Set(), clean = [];
+          rows.forEach((r, i) => {
+            const seat = int(r.seat, 1, 200), pin = cleanPin(r.pin);
+            if (!seat || !pin) return errors.push(`第 ${i + 1} 筆：座號或代碼格式不正確`);
+            if (seen.has(seat)) return errors.push(`第 ${i + 1} 筆：座號 ${seat} 重複`);
+            seen.add(seat); clean.push({ seat, pin, nickname: cleanNick(r.nickname) });
+          });
+          if (!clean.length) return json({ ok: false, error: '沒有可以匯入的資料', errors }, 400);
+          const { results: ex } = await env.DB.prepare('SELECT id, seat_no FROM students WHERE class_id = ?').bind(cid).all();
+          const bySeat = new Map(ex.map(r => [r.seat_no, r.id]));
+          let added = 0, updated = 0;
+          const stmts = clean.map(r => {
+            if (bySeat.has(r.seat)) {
+              updated++;
+              return r.nickname
+                ? env.DB.prepare('UPDATE students SET pin = ?, nickname = ?, fail_count = 0, locked_until = NULL WHERE id = ?').bind(r.pin, r.nickname, bySeat.get(r.seat))
+                : env.DB.prepare('UPDATE students SET pin = ?, fail_count = 0, locked_until = NULL WHERE id = ?').bind(r.pin, bySeat.get(r.seat));
+            }
+            added++;
+            return env.DB.prepare('INSERT INTO students (nickname, class_id, seat_no, pin) VALUES (?,?,?,?)').bind(r.nickname || `${r.seat}號`, cid, r.seat, r.pin);
+          });
+          try { await env.DB.batch(stmts); }
+          catch (e) { return json({ ok: false, error: '匯入失敗：名單中可能有同班重複的暱稱', errors }, 409); }
+          return json({ ok: true, added, updated, errors });
         }
         if (sub === '/results' && m === 'GET') {
           const out = {};

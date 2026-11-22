@@ -614,7 +614,11 @@ async function showStudents(cid,name){const box=$('#cdetail');box.innerHTML='<di
  <div class="row" style="margin-bottom:8px"><span class="muted">批次規則：</span><input type="text" id="rbpref" maxlength="4" placeholder="前綴，如 501" style="width:130px;min-height:36px;padding:4px 8px"><select id="rbdig"><option value="2">座號 2 位（01）</option><option value="1">座號 1 位（1）</option><option value="3">座號 3 位（001）</option></select><button class="btn sm" id="rball">全班套用規則</button><span class="muted" id="rbprev"></span></div>
  <div class="row" style="margin-bottom:10px"><span class="muted">全班重新隨機產生：</span><select id="rglen"><option value="4">4 位數</option><option value="5">5 位數</option><option value="6">6 位數</option></select><button class="btn sm" id="rgall">全部重新產生</button></div>
  <div class="scroll"><table><thead><tr><th class="num">座號</th><th>暱稱</th><th>代碼</th><th>狀態</th><th></th></tr></thead><tbody>${d.results.map(x=>`<tr><td class="num"><b>${x.seat_no}</b></td><td><input type="text" data-nick="${x.id}" value="${esc(x.nickname)}" maxlength="12" style="width:140px;min-height:36px;padding:4px 8px"></td><td><input type="text" data-pin="${x.id}" value="${esc(x.pin)}" maxlength="6" style="width:120px;min-height:36px;padding:4px 8px;font:700 18px ui-monospace,Consolas,monospace;letter-spacing:.12em"></td><td>${x.locked_until&&Date.parse(x.locked_until)>Date.now()?'<span style="color:var(--bad)">輸錯太多次，暫停中</span> <button class="btn sm" data-unlock="'+x.id+'">解除</button>':'正常'}</td><td style="text-align:right;white-space:nowrap"><button class="btn sm" data-reset="${x.id}" data-s="${x.seat_no}">隨機</button> <button class="btn sm" data-sdel="${x.id}" data-s="${x.seat_no}">刪除</button></td></tr>`).join('')}</tbody></table></div>
- <div class="row" style="margin-top:12px"><input type="text" id="nseat" inputmode="numeric" maxlength="3" placeholder="座號" style="width:90px"><button class="btn sm" id="sadd">新增座號</button><span class="muted" id="smsg"></span></div></div>`;
+ <div class="row" style="margin-top:12px"><input type="text" id="nseat" inputmode="numeric" maxlength="3" placeholder="座號" style="width:90px"><button class="btn sm" id="sadd">新增座號</button><span class="muted" id="smsg"></span></div>
+ <details style="margin-top:16px" ${d.results.length?'':'open'}><summary style="cursor:pointer;font-weight:700;font-size:17px">匯入座號與代碼（從 Excel／Google 試算表複製貼上，或選擇 CSV 檔）</summary>
+ <p class="muted">每一行一位學生：<b>座號、代碼</b>，可以再加<b>暱稱</b>。欄位用 Tab（直接從試算表複製）、逗號或空白分開都可以；第一行若是標題會自動略過。名單中已有的座號會更新代碼，沒有的會新增。</p>
+ <textarea id="imtxt" placeholder="1	50101	小海豚&#10;2	50102&#10;3	50103"></textarea>
+ <div class="row" style="margin-top:8px"><label class="btn sm" style="display:inline-flex;align-items:center">選擇 CSV／TXT 檔<input type="file" id="imfile" accept=".csv,.txt,text/csv,text/plain" hidden></label><button class="btn sm" id="imprev">預覽</button><button class="btn sm pri" id="imgo" disabled>確認匯入</button><span class="muted" id="immsg"></span></div><div id="imout"></div></details></div>`;
  const re=()=>showStudents(cid,name);
  $('#pclose').onclick=()=>box.innerHTML='';
  $$('[data-nick]',box).forEach(i=>i.onchange=async()=>{const r=await tApi('/api/teacher/students/'+i.dataset.nick,'PATCH',{nickname:i.value});if(!r.ok){alertMsg(r.error);re()}});
@@ -628,6 +632,18 @@ async function showStudents(cid,name){const box=$('#cdetail');box.innerHTML='<di
  $$('[data-unlock]',box).forEach(b=>b.onclick=async()=>{await tApi('/api/teacher/students/'+b.dataset.unlock,'PATCH',{unlock:true});re()});
  $$('[data-sdel]',box).forEach(b=>b.onclick=()=>confirmBox(`確定刪除 ${b.dataset.s} 號？他的認證成績也會一起刪除。`,async()=>{await tApi('/api/teacher/students/'+b.dataset.sdel,'DELETE');re();loadClasses()}));
  $('#sadd').onclick=async()=>{const r=await tApi(`/api/teacher/classes/${cid}/students`,'POST',{seat:+$('#nseat').value,pinLength:+$('#rglen').value});if(r.ok){re();loadClasses()}else $('#smsg').textContent=r.error};
+ let imRows=[];
+ const parseIm=()=>{const ok=[],bad=[],seen=new Set();$('#imtxt').value.split(/\r?\n/).forEach((line,i)=>{const t=line.trim();if(!t)return;const f=t.split(/\t|,|，|\s+/).map(x=>x.trim()).filter(Boolean);
+   if(!/^\d+$/.test(f[0]||'')){if(ok.length||bad.length)bad.push(`第 ${i+1} 行：${t}`);return}
+   const pin=(f[1]||'').toUpperCase();if(!/^[A-Z0-9]{1,6}$/.test(pin)){bad.push(`第 ${i+1} 行：代碼不正確（${esc(f[1]||'空白')}）`);return}
+   if(seen.has(+f[0])){bad.push(`第 ${i+1} 行：座號 ${+f[0]} 重複`);return}seen.add(+f[0]);
+   ok.push({seat:+f[0],pin,nickname:f.slice(2).join(' ').slice(0,12)})});return{ok,bad}};
+ $('#imprev').onclick=()=>{const {ok,bad}=parseIm();imRows=ok;$('#imgo').disabled=!ok.length;
+  $('#imout').innerHTML=(ok.length?`<p><b>可以匯入 ${ok.length} 筆：</b></p><div class="scroll" style="max-height:260px;overflow-y:auto"><table><thead><tr><th class="num">座號</th><th>代碼</th><th>暱稱</th><th>動作</th></tr></thead><tbody>${ok.map(r=>`<tr><td class="num">${r.seat}</td><td style="font-family:ui-monospace,Consolas,monospace">${esc(r.pin)}</td><td>${(()=>{const ex=d.results.find(x=>x.seat_no===r.seat);return esc(r.nickname||(ex?ex.nickname+'（不變）':r.seat+'號'))})()}</td><td>${d.results.some(x=>x.seat_no===r.seat)?'更新代碼':'新增'}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">沒有讀到可以匯入的資料。</p>')
+   +(bad.length?`<p style="color:var(--bad)">以下 ${bad.length} 行格式不正確，不會匯入：<br>${bad.map(esc).join('<br>')}</p>`:'')};
+ $('#imfile').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{$('#imtxt').value=String(rd.result).replace(/^\uFEFF/,'');$('#imprev').click()};rd.readAsText(f,'utf-8')};
+ $('#imgo').onclick=()=>confirmBox(`確定匯入 ${imRows.length} 筆座號與代碼？已有的座號會改成新的代碼。`,async()=>{const r=await tApi(`/api/teacher/classes/${cid}/import`,'POST',{rows:imRows});
+  if(!r.ok){alertMsg(r.error);return}await re();loadClasses();$('#smsg').textContent=`匯入完成：新增 ${r.added} 位、更新 ${r.updated} 位。`+(r.errors&&r.errors.length?` 另有 ${r.errors.length} 筆未匯入：${r.errors.join('；')}`:'')});
  $('#pprint').onclick=()=>{const pa=document.createElement('div');pa.id='printarea';const site=location.origin;
   pa.innerHTML=`<h2>${esc(name)} 打字認證代碼</h2><p>網址：${esc(site)}　→ 按右上角「認證模式」→ 選班級與座號 → 輸入代碼</p><div class="pins">${d.results.map(x=>`<div class="pinc">${esc(name)}　${x.seat_no} 號<b>${esc(x.pin)}</b></div>`).join('')}</div>`;
   document.body.appendChild(pa);document.body.classList.add('printing');const done=()=>{document.body.classList.remove('printing');pa.remove()};
@@ -668,7 +684,7 @@ function vTeacher(){
   app.innerHTML=`<div class="row" style="justify-content:space-between;margin-bottom:12px"><span class="badge">已登入教師模式</span><button class="btn sm" id="tout">登出</button></div>
   <div class="row" style="margin-bottom:16px">${segHTML('ttab',TTABS,ttab())}</div>
   <section data-tab="班級與認證"><div class="card"><h2>班級與認證管理</h2><p class="lead">建立班級後，系統會依規則產生每個座號的代碼，例如前綴 501＋座號 → 5 年 1 班 1 號是 50101、23 號是 50123；也可以選隨機產生，或之後逐一自訂（6 碼以內英數字）。<b>認證平常是關閉的</b>，要讓哪一班認證時，再勾選那一班的「開放認證」；學生按右上角「認證模式」，選班級、座號、輸入代碼即可進入。</p>
-  <div class="row" style="gap:12px;align-items:flex-end"><label class="f">班級名稱<input type="text" id="cn" maxlength="20" placeholder="例如：五年四班"></label><label class="f">人數<input type="text" id="cnum" inputmode="numeric" maxlength="2" placeholder="29" style="width:90px"></label><label class="f">代碼方式<select id="cplen"><option value="rule">前綴＋座號</option><option value="4">隨機 4 位數</option><option value="5">隨機 5 位數</option><option value="6">隨機 6 位數</option></select></label>
+  <div class="row" style="gap:12px;align-items:flex-end"><label class="f">班級名稱<input type="text" id="cn" maxlength="20" placeholder="例如：五年四班"></label><label class="f">人數<input type="text" id="cnum" inputmode="numeric" maxlength="2" placeholder="29" style="width:90px" title="填 0 可以先建立空班級，再匯入名單"></label><label class="f">代碼方式<select id="cplen"><option value="rule">前綴＋座號</option><option value="4">隨機 4 位數</option><option value="5">隨機 5 位數</option><option value="6">隨機 6 位數</option></select></label>
   <label class="f" id="cpref-w">前綴<input type="text" id="cpref" maxlength="4" placeholder="例如 501" style="width:110px"></label>
   <label class="f" id="cdig-w">座號位數<select id="cdig"><option value="2">2 位（01）</option><option value="1">1 位（1）</option><option value="3">3 位（001）</option></select></label><button class="btn pri" id="cadd">建立班級</button><span class="muted" id="cmsg"></span></div>
   <div id="tcls" style="margin-top:16px"><p class="muted">載入中…</p></div></div><div id="cdetail"></div></section>
@@ -689,9 +705,9 @@ function vTeacher(){
   loadTExams();loadClasses();
   const cpv=()=>{const r=$('#cplen').value==='rule';$('#cpref-w').style.display=$('#cdig-w').style.display=r?'':'none';if(r&&$('#cpref').value)$('#cmsg').textContent=`範例：1 號 → ${($('#cpref').value.trim()+'1'.padStart(+$('#cdig').value,'0')).toUpperCase()}`};
   $('#cplen').onchange=cpv;$('#cpref').oninput=cpv;$('#cdig').onchange=cpv;cpv();
-  $('#cadd').onclick=async()=>{const name=$('#cn').value.trim(),count=+$('#cnum').value;if(!name||!count){$('#cmsg').textContent='請輸入班級名稱與人數';return}
-   const rule=$('#cplen').value==='rule';if(rule&&!$('#cpref').value.trim()){$('#cmsg').textContent='請輸入前綴，例如 501';return}
-   const d=await tApi('/api/teacher/classes','POST',rule?{name,count,rulePrefix:$('#cpref').value.trim(),seatDigits:+$('#cdig').value}:{name,count,pinLength:+$('#cplen').value});$('#cmsg').textContent=d.ok?`已建立「${name}」，共 ${count} 個座號。`:d.error;if(d.ok){$('#cn').value='';$('#cnum').value='';loadClasses();showStudents(d.id,name)}};
+  $('#cadd').onclick=async()=>{const name=$('#cn').value.trim(),count=+$('#cnum').value||0;if(!name){$('#cmsg').textContent='請輸入班級名稱';return}
+   const rule=$('#cplen').value==='rule';if(rule&&count&&!$('#cpref').value.trim()){$('#cmsg').textContent='請輸入前綴，例如 501';return}
+   const d=await tApi('/api/teacher/classes','POST',rule?{name,count,rulePrefix:$('#cpref').value.trim(),seatDigits:+$('#cdig').value}:{name,count,pinLength:+$('#cplen').value});$('#cmsg').textContent=d.ok?(count?`已建立「${name}」，共 ${count} 個座號。`:`已建立「${name}」，請在下方匯入座號與代碼。`):d.error;if(d.ok){$('#cn').value='';$('#cnum').value='';loadClasses();showStudents(d.id,name)}};
   $('#tadd').onclick=()=>{const title=$('#ta').value.trim(),lines=$('#tt').value.split('\n').map(s=>s.trim()).filter(Boolean);if(!title||!lines.length){$('#tmsg').textContent='請填寫標題和內文。';return}
    cus.push({id:'c'+Date.now(),lang:$('#tl').value,grade:$('#tgd').value,title,lines});store.set(K.art,cus);draw();$('#tmsg').textContent='已新增「'+title+'」。'};
   $$('[data-del]').forEach(b=>b.onclick=()=>confirmBox('確定刪除「'+cus[b.dataset.del].title+'」？',()=>{cus.splice(+b.dataset.del,1);store.set(K.art,cus);draw()}));
