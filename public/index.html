@@ -500,15 +500,15 @@ function applyCert(){const c=cert();document.body.classList.toggle('cert-on',!!c
 async function certLogin(){
  if(!(await apiReady)){modal('<h3>認證模式</h3><p>認證模式需要連線資料庫，請使用學校網址：<b>typing-practice.cedhome017.workers.dev</b></p><button class="btn" id="mc">關閉</button>',b=>$('#mc',b).onclick=closeModal);return}
  let classes=[];try{classes=(await fetch('/api/classes',{cache:'no-store'}).then(r=>r.json())).results||[]}catch(e){}
- if(!classes.length){modal('<h3>認證模式</h3><p>老師還沒有建立班級。</p><button class="btn" id="mc">關閉</button>',b=>$('#mc',b).onclick=closeModal);return}
- modal(`<h3>進入認證模式</h3><p class="muted">請選擇班級和座號，再輸入老師給你的 4 位數代碼。</p>
+ if(!classes.length){modal('<h3>認證模式</h3><p><b>教師尚未開啟認證。</b></p><p class="muted">要進行認證時，老師會開啟你們班的認證。平常可以先用一般模式練習和檢定。</p><button class="btn" id="mc">關閉</button>',b=>$('#mc',b).onclick=closeModal);return}
+ modal(`<h3>進入認證模式</h3><p class="muted">請選擇班級和座號，再輸入老師給你的代碼。</p>
  <label class="f">班級<select id="cc">${classes.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label>
  <label class="f" style="margin-top:8px">座號<select id="cs"></select></label>
- <label class="f" style="margin-top:8px">代碼<input type="password" id="cp" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="4 位數字" style="font-size:22px;letter-spacing:.3em"></label>
+ <label class="f" style="margin-top:8px">代碼<input type="password" id="cp" maxlength="6" autocomplete="off" placeholder="最多 6 碼" style="font-size:22px;letter-spacing:.3em"></label>
  <p class="hint" id="cm" style="color:var(--bad)"></p><div class="row"><button class="btn pri" id="cgo">進入認證模式</button><button class="btn" id="cx">取消</button></div>`,async b=>{
   const loadSeats=async()=>{$('#cs',b).innerHTML='';const d=await fetch(`/api/classes/${$('#cc',b).value}/seats`,{cache:'no-store'}).then(r=>r.json());$('#cs',b).innerHTML=d.seats.map(n=>`<option value="${n}">${n} 號</option>`).join('')};
   $('#cc',b).onchange=loadSeats;await loadSeats();$('#cx',b).onclick=closeModal;
-  const go=async()=>{const pin=$('#cp',b).value.trim();if(!/^\d{4}$/.test(pin)){$('#cm',b).textContent='請輸入 4 位數字代碼';return}$('#cm',b).textContent='驗證中…';
+  const go=async()=>{const pin=$('#cp',b).value.trim().toUpperCase();if(!/^[A-Z0-9]{1,6}$/.test(pin)){$('#cm',b).textContent='請輸入代碼（最多 6 碼）';return}$('#cm',b).textContent='驗證中…';
    try{const d=await postJSON('/api/cert/login',{classId:+$('#cc',b).value,seat:+$('#cs',b).value,pin});
     if(!d.ok){$('#cm',b).textContent=d.error;$('#cp',b).value='';$('#cp',b).focus();return}
     setCert({token:d.token,exp:Date.now()+d.hours*3600e3,...d.student,showClassRank:d.showClassRank});closeModal();location.hash='exam';route();
@@ -587,9 +587,11 @@ function vRecords(){
 async function tApi(url,method,body){const r=await fetch(url,{method:method||'GET',headers:{'content-type':'application/json',authorization:'Bearer '+ss.get(TK)},body:body?JSON.stringify(body):undefined,cache:'no-store'});return r.json()}
 async function loadClasses(){const box=$('#tcls');if(!box)return;
  try{const d=await tApi('/api/teacher/classes');if(!d.ok){box.innerHTML=`<p class="muted">${esc(d.error)}</p>`;return}
-  box.innerHTML=d.results.length?`<div class="scroll"><table><thead><tr><th>班級</th><th class="num">人數</th><th class="num">認證次數</th><th>學生可看全班成績</th><th></th></tr></thead><tbody>${d.results.map(c=>`<tr><td><b>${esc(c.name)}</b></td><td class="num">${c.students}</td><td class="num">${c.exams}</td>
+  box.innerHTML=d.results.length?`<div class="scroll"><table><thead><tr><th>班級</th><th class="num">人數</th><th class="num">認證次數</th><th>開放認證</th><th>學生可看全班成績</th><th></th></tr></thead><tbody>${d.results.map(c=>`<tr><td><b>${esc(c.name)}</b></td><td class="num">${c.students}</td><td class="num">${c.exams}</td>
+   <td><label class="row" style="gap:6px"><input type="checkbox" data-open="${c.id}" ${c.cert_open?'checked':''} style="width:20px;height:20px"><span style="color:${c.cert_open?'var(--ok)':'var(--mute)'};font-weight:700">${c.cert_open?'認證中':'關閉'}</span></label></td>
    <td><label class="row" style="gap:6px"><input type="checkbox" data-rank="${c.id}" ${c.show_class_rank?'checked':''} style="width:20px;height:20px">${c.show_class_rank?'開放中':'關閉'}</label></td>
    <td style="text-align:right;white-space:nowrap"><button class="btn sm" data-stu="${c.id}" data-n="${esc(c.name)}">學生與代碼</button> <button class="btn sm" data-res="${c.id}" data-n="${esc(c.name)}">認證成績</button> <button class="btn sm" data-cdel="${c.id}" data-n="${esc(c.name)}">刪除</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">還沒有建立班級。</p>';
+  $$('[data-open]',box).forEach(x=>x.onchange=async()=>{await tApi('/api/teacher/classes/'+x.dataset.open,'PATCH',{certOpen:x.checked});loadClasses()});
   $$('[data-rank]',box).forEach(x=>x.onchange=async()=>{await tApi('/api/teacher/classes/'+x.dataset.rank,'PATCH',{showClassRank:x.checked});loadClasses()});
   $$('[data-stu]',box).forEach(x=>x.onclick=()=>showStudents(+x.dataset.stu,x.dataset.n));
   $$('[data-res]',box).forEach(x=>x.onclick=()=>showResults(+x.dataset.res,x.dataset.n));
@@ -598,16 +600,19 @@ async function loadClasses(){const box=$('#tcls');if(!box)return;
 async function showStudents(cid,name){const box=$('#cdetail');box.innerHTML='<div class="card"><p class="muted">載入中…</p></div>';
  const d=await tApi(`/api/teacher/classes/${cid}/students`);if(!d.ok){box.innerHTML=`<div class="card"><p class="muted">${esc(d.error)}</p></div>`;return}
  box.innerHTML=`<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">${esc(name)}：學生與代碼</h3><div class="row"><button class="btn sm" id="pprint">列印代碼卡</button><button class="btn sm" id="pclose">收起</button></div></div>
- <p class="muted">暱稱可以直接修改（離開欄位就會儲存），會顯示在班級成績中。學生忘記代碼時，可以直接告訴他，或按「重設代碼」換一組。</p>
- <div class="scroll"><table><thead><tr><th class="num">座號</th><th>暱稱</th><th>代碼</th><th>狀態</th><th></th></tr></thead><tbody>${d.results.map(x=>`<tr><td class="num"><b>${x.seat_no}</b></td><td><input type="text" data-nick="${x.id}" value="${esc(x.nickname)}" maxlength="12" style="width:140px;min-height:36px;padding:4px 8px"></td><td style="font:700 20px ui-monospace,Consolas,monospace;letter-spacing:.15em">${esc(x.pin)}</td><td>${x.locked_until&&Date.parse(x.locked_until)>Date.now()?'<span style="color:var(--bad)">輸錯太多次，暫停中</span> <button class="btn sm" data-unlock="'+x.id+'">解除</button>':'正常'}</td><td style="text-align:right;white-space:nowrap"><button class="btn sm" data-reset="${x.id}" data-s="${x.seat_no}">重設代碼</button> <button class="btn sm" data-sdel="${x.id}" data-s="${x.seat_no}">刪除</button></td></tr>`).join('')}</tbody></table></div>
+ <p class="muted">暱稱和代碼都可以直接修改（離開欄位就會儲存）。代碼最多 6 碼，可用數字或英文字母（不分大小寫）。按「隨機」會換一組新的數字代碼。</p>
+ <div class="row" style="margin-bottom:10px"><span class="muted">全班重新隨機產生：</span><select id="rglen"><option value="4">4 位數</option><option value="5">5 位數</option><option value="6">6 位數</option></select><button class="btn sm" id="rgall">全部重新產生</button></div>
+ <div class="scroll"><table><thead><tr><th class="num">座號</th><th>暱稱</th><th>代碼</th><th>狀態</th><th></th></tr></thead><tbody>${d.results.map(x=>`<tr><td class="num"><b>${x.seat_no}</b></td><td><input type="text" data-nick="${x.id}" value="${esc(x.nickname)}" maxlength="12" style="width:140px;min-height:36px;padding:4px 8px"></td><td><input type="text" data-pin="${x.id}" value="${esc(x.pin)}" maxlength="6" style="width:120px;min-height:36px;padding:4px 8px;font:700 18px ui-monospace,Consolas,monospace;letter-spacing:.12em"></td><td>${x.locked_until&&Date.parse(x.locked_until)>Date.now()?'<span style="color:var(--bad)">輸錯太多次，暫停中</span> <button class="btn sm" data-unlock="'+x.id+'">解除</button>':'正常'}</td><td style="text-align:right;white-space:nowrap"><button class="btn sm" data-reset="${x.id}" data-s="${x.seat_no}">隨機</button> <button class="btn sm" data-sdel="${x.id}" data-s="${x.seat_no}">刪除</button></td></tr>`).join('')}</tbody></table></div>
  <div class="row" style="margin-top:12px"><input type="text" id="nseat" inputmode="numeric" maxlength="3" placeholder="座號" style="width:90px"><button class="btn sm" id="sadd">新增座號</button><span class="muted" id="smsg"></span></div></div>`;
  const re=()=>showStudents(cid,name);
  $('#pclose').onclick=()=>box.innerHTML='';
  $$('[data-nick]',box).forEach(i=>i.onchange=async()=>{const r=await tApi('/api/teacher/students/'+i.dataset.nick,'PATCH',{nickname:i.value});if(!r.ok){alertMsg(r.error);re()}});
- $$('[data-reset]',box).forEach(b=>b.onclick=()=>confirmBox(`確定重設 ${b.dataset.s} 號的代碼？舊代碼會立刻失效。`,async()=>{await tApi('/api/teacher/students/'+b.dataset.reset,'PATCH',{resetPin:true});re()}));
+ $$('[data-reset]',box).forEach(b=>b.onclick=()=>confirmBox(`確定幫 ${b.dataset.s} 號隨機產生新代碼？舊代碼會立刻失效。`,async()=>{await tApi('/api/teacher/students/'+b.dataset.reset,'PATCH',{resetPin:true,pinLength:+$('#rglen').value});re()}));
+ $$('[data-pin]',box).forEach(i=>i.onchange=async()=>{const r=await tApi('/api/teacher/students/'+i.dataset.pin,'PATCH',{pin:i.value});if(!r.ok)alertMsg(r.error);re()});
+ $('#rgall').onclick=()=>confirmBox(`確定把全班代碼重新產生成 ${$('#rglen').value} 位數？所有舊代碼會立刻失效，需要重新發代碼卡。`,async()=>{await tApi('/api/teacher/classes/'+cid,'PATCH',{regenPins:true,pinLength:+$('#rglen').value});re()});
  $$('[data-unlock]',box).forEach(b=>b.onclick=async()=>{await tApi('/api/teacher/students/'+b.dataset.unlock,'PATCH',{unlock:true});re()});
  $$('[data-sdel]',box).forEach(b=>b.onclick=()=>confirmBox(`確定刪除 ${b.dataset.s} 號？他的認證成績也會一起刪除。`,async()=>{await tApi('/api/teacher/students/'+b.dataset.sdel,'DELETE');re();loadClasses()}));
- $('#sadd').onclick=async()=>{const r=await tApi(`/api/teacher/classes/${cid}/students`,'POST',{seat:+$('#nseat').value});if(r.ok){re();loadClasses()}else $('#smsg').textContent=r.error};
+ $('#sadd').onclick=async()=>{const r=await tApi(`/api/teacher/classes/${cid}/students`,'POST',{seat:+$('#nseat').value,pinLength:+$('#rglen').value});if(r.ok){re();loadClasses()}else $('#smsg').textContent=r.error};
  $('#pprint').onclick=()=>{const pa=document.createElement('div');pa.id='printarea';const site=location.origin;
   pa.innerHTML=`<h2>${esc(name)} 打字認證代碼</h2><p>網址：${esc(site)}　→ 按右上角「認證模式」→ 選班級與座號 → 輸入代碼</p><div class="pins">${d.results.map(x=>`<div class="pinc">${esc(name)}　${x.seat_no} 號<b>${esc(x.pin)}</b></div>`).join('')}</div>`;
   document.body.appendChild(pa);document.body.classList.add('printing');const done=()=>{document.body.classList.remove('printing');pa.remove()};
@@ -639,8 +644,8 @@ async function loadTExams(){const box=$('#tex');if(!box)return;const t=ss.get(TK
 /* 教師 */
 function vTeacher(){
  const draw=()=>{const cus=store.get(K.art,[]);
-  app.innerHTML=`<div class="row" style="justify-content:space-between;margin-bottom:12px"><span class="badge">已登入教師模式</span><button class="btn sm" id="tout">登出</button></div><div class="card"><h2>班級與認證管理</h2><p class="lead">建立班級後，系統會自動產生每個座號的 4 位數代碼。學生按右上角「認證模式」，選班級、座號、輸入代碼，就能進行認證檢定。</p>
-  <div class="row" style="gap:12px;align-items:flex-end"><label class="f">班級名稱<input type="text" id="cn" maxlength="20" placeholder="例如：五年四班"></label><label class="f">人數<input type="text" id="cnum" inputmode="numeric" maxlength="2" placeholder="29" style="width:90px"></label><button class="btn pri" id="cadd">建立班級</button><span class="muted" id="cmsg"></span></div>
+  app.innerHTML=`<div class="row" style="justify-content:space-between;margin-bottom:12px"><span class="badge">已登入教師模式</span><button class="btn sm" id="tout">登出</button></div><div class="card"><h2>班級與認證管理</h2><p class="lead">建立班級後，系統會自動產生每個座號的代碼（4–6 位數字，也可以自己改成 6 碼以內的英數字）。<b>認證平常是關閉的</b>，要讓哪一班認證時，再勾選那一班的「開放認證」；學生按右上角「認證模式」，選班級、座號、輸入代碼即可進入。</p>
+  <div class="row" style="gap:12px;align-items:flex-end"><label class="f">班級名稱<input type="text" id="cn" maxlength="20" placeholder="例如：五年四班"></label><label class="f">人數<input type="text" id="cnum" inputmode="numeric" maxlength="2" placeholder="29" style="width:90px"></label><label class="f">代碼長度<select id="cplen"><option value="4">4 位數</option><option value="5">5 位數</option><option value="6">6 位數</option></select></label><button class="btn pri" id="cadd">建立班級</button><span class="muted" id="cmsg"></span></div>
   <div id="tcls" style="margin-top:16px"><p class="muted">載入中…</p></div></div><div id="cdetail"></div>
   <div class="card"><h2>教師：自訂檢定文章</h2><p class="lead">新增的文章會出現在「檢定」的文章清單。資料存在這台電腦的瀏覽器；要放到其他電腦，請用下方的匯出／匯入。</p>
   <div class="row" style="gap:12px;margin-bottom:10px"><label class="f">標題<input type="text" id="ta" maxlength="30" placeholder="例如：我的志願"></label>
@@ -654,7 +659,7 @@ function vTeacher(){
   $('#tout').onclick=()=>{ss.del(TK);location.href='/'};
   loadTExams();loadClasses();
   $('#cadd').onclick=async()=>{const name=$('#cn').value.trim(),count=+$('#cnum').value;if(!name||!count){$('#cmsg').textContent='請輸入班級名稱與人數';return}
-   const d=await tApi('/api/teacher/classes','POST',{name,count});$('#cmsg').textContent=d.ok?`已建立「${name}」，共 ${count} 個座號。`:d.error;if(d.ok){$('#cn').value='';$('#cnum').value='';loadClasses();showStudents(d.id,name)}};
+   const d=await tApi('/api/teacher/classes','POST',{name,count,pinLength:+$('#cplen').value});$('#cmsg').textContent=d.ok?`已建立「${name}」，共 ${count} 個座號。`:d.error;if(d.ok){$('#cn').value='';$('#cnum').value='';loadClasses();showStudents(d.id,name)}};
   $('#tadd').onclick=()=>{const title=$('#ta').value.trim(),lines=$('#tt').value.split('\n').map(s=>s.trim()).filter(Boolean);if(!title||!lines.length){$('#tmsg').textContent='請填寫標題和內文。';return}
    cus.push({id:'c'+Date.now(),lang:$('#tl').value,grade:$('#tgd').value,title,lines});store.set(K.art,cus);draw();$('#tmsg').textContent='已新增「'+title+'」。'};
   $$('[data-del]').forEach(b=>b.onclick=()=>confirmBox('確定刪除「'+cus[b.dataset.del].title+'」？',()=>{cus.splice(+b.dataset.del,1);store.set(K.art,cus);draw()}));
