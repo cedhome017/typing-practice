@@ -116,6 +116,9 @@ export default {
       const correct = int(b.correct, 0, 20000), wrong = int(b.wrong, 0, 20000), missed = int(b.missed, 0, 20000);
       if (!nickname || !lang || !timeLimit || duration === null || correct === null || wrong === null || missed === null || duration > timeLimit * 60 + 5)
         return json({ ok: false, error: '成績資料不完整或不正確' }, 400);
+      const total = int(b.totalChars, 1, 20000);
+      if (!b.finishedAll && duration < timeLimit * 60 * 0.8 - 2 && (!total || correct + wrong < total * 0.8 - 1))
+        return json({ ok: false, error: '內容或時間未達 80%，這次成績不列入紀錄' }, 400);
       const speed = Math.floor((lang === 'zh' ? correct : correct / 5) / duration * 60);
       if (speed > (lang === 'zh' ? 250 : 200)) return json({ ok: false, error: '速度異常，未列入排行榜' }, 400);
       const accuracy = correct + wrong ? Math.round(correct / (correct + wrong) * 100) : 0;

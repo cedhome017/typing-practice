@@ -40,6 +40,7 @@ main{max-width:1240px;margin:auto;padding:clamp(18px,3vw,40px) max(3vw,12px) 60p
 .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .btn{min-height:44px;padding:9px 18px;border-radius:9px;border:1px solid var(--line);background:var(--panel);cursor:pointer;font-weight:500}
 .btn:hover{border-color:var(--ink)}.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:700}
+.btn:disabled{opacity:.45;cursor:not-allowed}.btn.pri:disabled:hover{border-color:var(--acc)}
 .btn.sm{min-height:36px;padding:5px 12px;font-size:14px}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;flex-wrap:wrap}
 .seg button{border:0;background:var(--panel);padding:9px 14px;min-height:42px;cursor:pointer;border-right:1px solid var(--line)}
@@ -435,7 +436,7 @@ function lcs(t,u){const n=t.length,m=u.length,d=Array.from({length:n+1},()=>new 
 const ex={lang:'zh',grade:'中年級',id:'',ver:'含標點',mins:3};
 function vExam(){
  const arts=allArticles().filter(a=>a.lang===ex.lang&&a.grade===ex.grade).sort((x,y)=>countChars(x,ex.ver)-countChars(y,ex.ver));if(!arts.find(a=>a.id===ex.id))ex.id=arts[0]?arts[0].id:'';
- app.innerHTML=`<div class="card"><h2>打字檢定</h2><p class="lead">選好文章與時間後開始。開始打字才會計時；時間到或按「交卷」就結束。按 <kbd>Enter</kbd> 鍵，可跳下一行。</p>
+ app.innerHTML=`<div class="card"><h2>打字檢定</h2><p class="lead">選好文章與時間後開始。開始打字才會計時；時間到、整篇打完，或按「交卷」就結束；為了公平，<b>內容完成 80% 或時間經過 80%</b> 後才能交卷。按 <kbd>Enter</kbd> 鍵，可跳下一行。</p>
  <div class="row" style="gap:16px;align-items:flex-end;margin-bottom:12px">
   <label class="f">語言${segHTML('xl',['中文','英文'],ex.lang==='zh'?'中文':'英文')}</label>
   <label class="f">年段${segHTML('xg',['中年級','高年級'],ex.grade)}</label>
@@ -460,20 +461,26 @@ function runExam(a){
  <div class="stats" style="margin-top:12px">${statHTML([['x1','正確'],['x2','錯誤'],['x3','未打'],['x4',zh?'速度 字/分':'速度 WPM']])}</div>
  <p class="note" style="margin:0 0 14px">打完一行後，按 <kbd>Enter</kbd> 鍵，可跳下一行。藍色底線是目前要打的字。<br>提醒：字底下還有<b>虛線</b>時，第一次按 <kbd>Enter</kbd> 是「確定選字」，虛線消失後再按一次 <kbd>Enter</kbd> 才會跳到下一行。</p><div id="xres"></div>
  <div id="lines">${L.map((l,i)=>`<div class="ln"><div class="tg ${zh?'':'en'}" id="tg${i}">${[...l.d].map(c=>c===' '&&zh?'<span class="gap"> </span>':`<span class="c">${esc(c)}</span>`).join('')}</div><input type="text" class="ip ${zh?'':'en'}" id="ip${i}" data-i="${i}" autocomplete="off" autocapitalize="off" spellcheck="false"></div>`).join('')}</div>
- <div class="row"><button class="btn pri" id="xsub">交卷</button><button class="btn" id="xquit">放棄，回到選單</button></div></div>`;
+ <div class="row"><button class="btn pri" id="xsub" disabled>交卷</button><button class="btn" id="xquit">放棄，回到選單</button><span class="muted" id="xgate"></span></div></div>`;
  L.forEach((l,i)=>{l.sp=$$('#tg'+i+' .c');l.ip=$('#ip'+i)});
- const evalAll=()=>{let ok=0,wr=0,miss=0;L.forEach(l=>{let u=[...l.ip.value];if(zh)u=u.filter(c=>!/\s/.test(c));const {hit,count}=lcs(l.t,u);
+ const TOTAL=L.reduce((n,l)=>n+l.t.length,0);let prog=0;
+ const elapsed=()=>t0?(Date.now()-t0)/1000:0;
+ const canSubmit=()=>prog>=0.8||elapsed()>=limit*0.8;
+ const gate=()=>{const b=$('#xsub');if(!b||done)return;const ok=t0&&canSubmit();b.disabled=!ok;
+  $('#xgate').textContent=ok?'已達交卷條件，可以交卷。':`內容完成 80% 或時間經過 80% 才能交卷（目前內容 ${Math.floor(prog*100)}%、時間 ${Math.floor(elapsed()/limit*100)}%）`};
+ const evalAll=()=>{let ok=0,wr=0,miss=0,done_=0;L.forEach(l=>{let u=[...l.ip.value];if(zh)u=u.filter(c=>!/\s/.test(c));const {hit,count}=lcs(l.t,u);
   l.sp.forEach((s,i)=>s.className='c '+(hit[i]?'ok':i<u.length?'bad':i===u.length&&document.activeElement===l.ip?'cur':''));
-  ok+=count;wr+=u.length-count;miss+=Math.max(0,l.t.length-u.length);l.full=u.length>=l.t.length});
+  ok+=count;wr+=u.length-count;miss+=Math.max(0,l.t.length-u.length);done_+=Math.min(u.length,l.t.length);l.full=u.length>=l.t.length});
+  prog=done_/TOTAL;gate();
   const sec=t0?Math.max(1,(Date.now()-t0)/1000):1;const sp=Math.floor((zh?ok:ok/5)/sec*60);
   $('#x1').textContent=ok;$('#x2').textContent=wr;$('#x3').textContent=miss;$('#x4').textContent=t0?sp:0;return{ok,wr,miss,sp,sec}};
- const start=()=>{if(t0||done)return;t0=Date.now();timer=setInterval(()=>{const left=limit-(Date.now()-t0)/1000;$('#xt').textContent=fmtT(Math.max(0,left));if(left<=0)finish('時間到')},250)};
- const finish=why=>{if(done)return;done=true;clearInterval(timer);L.forEach(l=>l.ip.readOnly=true);
+ const start=()=>{if(t0||done)return;t0=Date.now();timer=setInterval(()=>{const left=limit-(Date.now()-t0)/1000;$('#xt').textContent=fmtT(Math.max(0,left));gate();if(left<=0)finish('時間到')},250)};
+ const finish=why=>{if(done)return;done=true;clearInterval(timer);L.forEach(l=>l.ip.readOnly=true);$('#xsub').disabled=true;$('#xgate').textContent='';
   const r=evalAll();const sec=t0?Math.max(1,Math.round(Math.min(limit,(Date.now()-t0)/1000))):0;const sp=sec?Math.floor((zh?r.ok:r.ok/5)/sec*60):0;const acc=pct(r.ok,r.ok+r.wr);const lv=level(a.lang,sp,acc);
   if(t0)addRecord({type:'檢定',lang:a.lang,title:a.title+(zh?'（'+ver+'）':''),speed:sp,unit:zh?'字/分':'WPM',acc,sec:Math.round(sec),level:lv,min:ex.mins});
   $('#xres').innerHTML=`<div class="card res" style="background:var(--soft)"><div class="muted">${why}</div><div class="big">${sp}<small style="font-size:22px"> ${zh?'字/分':'WPM'}</small></div><div class="lv">${lv}</div>
   <p>正確 ${r.ok}　錯誤 ${r.wr}　未打 ${r.miss}　正確率 ${acc}%　用時 ${fmtT(sec)}${acc<80?'<br>正確率未達 80%，這次不評等級。':''}</p><p id="xup" class="muted"></p><div class="row" style="justify-content:center"><button class="btn pri" id="xagain">再測一次</button><button class="btn" id="xback">換文章</button></div></div>`;
-  if(t0)uploadExam({lang:a.lang,articleId:a.id,articleTitle:a.title,gradeBand:a.grade,version:zh?ver:'英文',timeLimit:ex.mins,durationSec:sec,correct:r.ok,wrong:r.wr,missed:r.miss,finishedAll:why==='全部打完了'});
+  if(t0)uploadExam({lang:a.lang,articleId:a.id,articleTitle:a.title,gradeBand:a.grade,version:zh?ver:'英文',timeLimit:ex.mins,durationSec:sec,totalChars:TOTAL,correct:r.ok,wrong:r.wr,missed:r.miss,finishedAll:why==='全部打完了'});
   $('#xagain').onclick=()=>runExam(a);$('#xback').onclick=vExam;$('#xres').scrollIntoView({behavior:'smooth',block:'center'})};
  L.forEach((l,i)=>{const ip=l.ip;
   ip.addEventListener('compositionstart',start);
@@ -482,7 +489,7 @@ function runExam(a){
   ip.addEventListener('focus',evalAll);
   ip.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();const n=L[i+1];n?n.ip.focus():$('#xsub').focus()}});
   ['paste','drop'].forEach(ev=>ip.addEventListener(ev,e=>e.preventDefault()))});
- $('#xsub').onclick=()=>t0?finish('已交卷'):L[0].ip.focus();
+ $('#xsub').onclick=()=>{if(t0&&canSubmit())finish('已交卷')};
  $('#xquit').onclick=()=>t0&&!done?confirmBox('確定要放棄這次檢定嗎？成績不會保存。',()=>{done=true;clearInterval(timer);vExam()}):(clearInterval(timer),vExam());
  L[0].ip.focus();evalAll();cleanup=()=>clearInterval(timer);
 }
