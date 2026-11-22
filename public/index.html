@@ -593,7 +593,7 @@ function vRecords(){
 
 const TTABS=['班級與認證','自訂文章','一般排行榜管理'];
 const ttab=()=>{let v=null;try{v=sessionStorage.getItem('typing.ttab')}catch(e){}return TTABS.includes(v)?v:TTABS[0]};
-const tex={rows:[],page:0,q:''};
+const tex={rows:[],page:0,q:''};let rgLen='4';
 async function tApi(url,method,body){const r=await fetch(url,{method:method||'GET',headers:{'content-type':'application/json',authorization:'Bearer '+ss.get(TK)},body:body?JSON.stringify(body):undefined,cache:'no-store'});return r.json()}
 async function loadClasses(){const box=$('#tcls');if(!box)return;
  try{const d=await tApi('/api/teacher/classes');if(!d.ok){box.innerHTML=`<p class="muted">${esc(d.error)}</p>`;return}
@@ -620,6 +620,7 @@ async function showStudents(cid,name){const box=$('#cdetail');box.innerHTML='<di
  <textarea id="imtxt" placeholder="1	50101	小海豚&#10;2	50102&#10;3	50103"></textarea>
  <div class="row" style="margin-top:8px"><label class="btn sm" style="display:inline-flex;align-items:center">選擇 CSV／TXT 檔<input type="file" id="imfile" accept=".csv,.txt,text/csv,text/plain" hidden></label><button class="btn sm" id="imprev">預覽</button><button class="btn sm pri" id="imgo" disabled>確認匯入</button><span class="muted" id="immsg"></span></div><div id="imout"></div></details></div>`;
  const re=()=>showStudents(cid,name);
+ $('#rglen').value=rgLen;$('#rglen').onchange=()=>rgLen=$('#rglen').value;
  $('#pclose').onclick=()=>box.innerHTML='';
  $$('[data-nick]',box).forEach(i=>i.onchange=async()=>{const r=await tApi('/api/teacher/students/'+i.dataset.nick,'PATCH',{nickname:i.value});if(!r.ok){alertMsg(r.error);re()}});
  $$('[data-reset]',box).forEach(b=>b.onclick=()=>confirmBox(`確定幫 ${b.dataset.s} 號隨機產生新代碼？舊代碼會立刻失效。`,async()=>{await tApi('/api/teacher/students/'+b.dataset.reset,'PATCH',{resetPin:true,pinLength:+$('#rglen').value});re()}));
