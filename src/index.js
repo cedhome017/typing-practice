@@ -56,7 +56,7 @@ async function readCert(request, secret) {
   if (!safeEqual(sig, await hmac(secret, `cert:${sid}:${cid}:${exp}`))) return null;
   return { sid: Number(sid), cid: Number(cid) };
 }
-const newPin = (len = 4) => { len = Math.min(6, Math.max(4, Number(len) || 4)); return String(crypto.getRandomValues(new Uint32Array(1))[0] % (10 ** len)).padStart(len, '0'); };
+const newPin = (len = 4) => { len = Math.min(8, Math.max(4, Number(len) || 4)); return String(crypto.getRandomValues(new Uint32Array(1))[0] % (10 ** len)).padStart(len, '0'); };
 // 規則代碼：前綴＋座號（補足位數），例如 501＋01 → 50101
 const rulePin = (prefix, digits, seat) => cleanPin(String(prefix || '').trim().toUpperCase() + String(seat).padStart(Number(digits) || 2, '0'));
 const cleanPin = v => { const p = String(v ?? '').trim().toUpperCase(); return /^[A-Z0-9]{1,8}$/.test(p) ? p : null; };
@@ -240,7 +240,7 @@ export default {
       }
       if (url.pathname === '/api/teacher/classes' && m === 'POST') {
         const b = await readJson(request);
-        const name = cleanText(b.name, 20), count = int(b.count ?? 0, 0, 60), plen = int(b.pinLength, 4, 6) || 4;
+        const name = cleanText(b.name, 20), count = int(b.count ?? 0, 0, 60), plen = int(b.pinLength, 4, 8) || 4;
         const useRule = b.rulePrefix !== undefined && b.rulePrefix !== null;
         if (useRule && count && !rulePin(b.rulePrefix, b.seatDigits, count)) return json({ ok: false, error: '前綴加上座號後不能超過 8 碼，且只能用英文字母或數字' }, 400);
         if (!name || count === null) return json({ ok: false, error: '請輸入班級名稱，人數為 0–60（填 0 可之後再匯入名單）' }, 400);
@@ -268,7 +268,7 @@ export default {
             if (pins.length) await env.DB.batch(pins.map(([id, p]) => env.DB.prepare('UPDATE students SET pin = ?, fail_count = 0, locked_until = NULL WHERE id = ?').bind(p, id)));
           }
           if (b.regenPins) {
-            const len = int(b.pinLength, 4, 6) || 4;
+            const len = int(b.pinLength, 4, 8) || 4;
             const { results } = await env.DB.prepare('SELECT id FROM students WHERE class_id = ?').bind(cid).all();
             if (results.length) await env.DB.batch(results.map(r => env.DB.prepare('UPDATE students SET pin = ?, fail_count = 0, locked_until = NULL WHERE id = ?').bind(newPin(len), r.id)));
           }
