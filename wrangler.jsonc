@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "typing-practice",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-01",
+  "assets": { "directory": "./public", "binding": "ASSETS" },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "typing-practice-db",
+      "database_id": "52d662bc-c7a7-4de0-831f-b73146c839c6",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

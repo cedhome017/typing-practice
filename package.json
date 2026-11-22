@@ -1,0 +1,10 @@
+{
+  "name": "typing-practice",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply typing-practice-db --remote"
+  },
+  "devDependencies": { "wrangler": "^4" }
+}

@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>中英文打字練習</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+/* VOICE: 正式、清楚、像學校的打字檢定場，給 3–6 年級學生
+   IDEA: 檢定試卷＋實體鍵盤：白色答案卷放在石灰色桌面上
+   PICTURE: 手指分色的大鍵盤，練習時亮起下一個要按的鍵
+   COLOUR and TYPE: 石灰底、白卷面、黑字、磚紅重點；Noto Sans TC
+   LAYOUT: 上方導覽，主區一欄；練習區把題目和鍵盤放在第一個畫面 */
+:root{color-scheme:light dark;
+--bg:light-dark(#e7e4df,#171513);--panel:light-dark(#fff,#211e1b);--ink:light-dark(#1b1a18,#efebe6);
+--mute:light-dark(#69645d,#a59f97);--line:light-dark(#d4cec5,#3a3531);--soft:light-dark(#f3f1ed,#2a2622);
+--acc:light-dark(#c8371e,#ff6b4f);--ok:light-dark(#1d7a3b,#5fd08a);--cur:light-dark(#1f5fd1,#6ea2ff);--bad:light-dark(#c8371e,#ff7a63);
+--f0:light-dark(#e6d7f6,#4a3a63);--f1:light-dark(#d3e5f7,#2f4a66);--f2:light-dark(#d4eed6,#2f5236);--f3:light-dark(#fbe2b4,#5e4a22);
+--f4:light-dark(#f9cfae,#62402a);--f8:light-dark(#ecebe8,#33302c);
+--kw:min(52px,calc((100vw - 140px)/15))}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;overflow-x:clip}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{line-height:1.15;margin:0 0 .4em;text-wrap:balance}
+h1{font-size:clamp(30px,4.6vw,48px);font-weight:900}h2{font-size:26px}h3{font-size:19px}
+.top{background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.topin{max-width:1240px;margin:auto;padding:10px max(3vw,12px);display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}
+.brand{font-weight:900;font-size:19px;display:flex;gap:8px;align-items:center;cursor:pointer}
+.brand i{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:7px;background:var(--acc);color:#fff;font-style:normal;font-size:15px}
+nav{display:flex;flex-wrap:wrap;gap:4px;flex:1}
+nav a{padding:8px 12px;border-radius:8px;text-decoration:none;color:var(--ink);font-weight:500;font-size:15px}
+nav a:hover{background:var(--soft)}nav a.on{background:var(--ink);color:var(--panel)}
+.who{border:1px solid var(--line);background:var(--soft);border-radius:999px;padding:7px 14px;cursor:pointer;font-size:14px;min-height:40px}
+main{max-width:1240px;margin:auto;padding:clamp(18px,3vw,40px) max(3vw,12px) 60px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(16px,2.4vw,28px);margin-bottom:18px}
+.lead{color:var(--mute);margin:0 0 18px;max-width:70ch}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{min-height:44px;padding:9px 18px;border-radius:9px;border:1px solid var(--line);background:var(--panel);cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--ink)}.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:700}
+.btn.sm{min-height:36px;padding:5px 12px;font-size:14px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:var(--panel);padding:9px 14px;min-height:42px;cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}.seg button.on{background:var(--ink);color:var(--panel);font-weight:700}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--mute)}
+select,input[type=text],textarea{font-size:16px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--panel);min-height:44px}
+textarea{width:100%;min-height:160px;line-height:1.7}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.muted{color:var(--mute);font-size:14px}
+/* keyboard */
+.kb{display:flex;flex-direction:column;gap:5px;align-items:center;padding:14px 8px;background:var(--soft);border-radius:12px;user-select:none}
+.kb{align-items:center}.kr{display:flex;gap:5px}
+.k{--w:1;width:calc(var(--kw)*var(--w) + 5px*(var(--w) - 1));height:var(--kw);position:relative;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+ border:1px solid light-dark(#0000001f,#ffffff22);box-shadow:0 2px 0 light-dark(#0000002a,#00000066);font-size:calc(var(--kw)*.3);line-height:1.05;transition:transform .08s}
+.k b{font-weight:700}.k i{font-style:normal;font-size:calc(var(--kw)*.36);font-weight:700;color:var(--acc)}
+.k em{font-style:normal;font-size:calc(var(--kw)*.26);font-weight:700;color:var(--mute);line-height:1}.k.on em{color:#fff}.k.blank{visibility:hidden}.k.fn b{font-size:calc(var(--kw)*.27)}
+.f0,.f7{background:var(--f0)}.f1,.f6{background:var(--f1)}.f2,.f5{background:var(--f2)}.f3{background:var(--f3)}.f4{background:var(--f4)}.f8{background:var(--f8)}
+.k.bump b{text-decoration:underline;text-underline-offset:3px}
+.k.on{background:var(--acc);color:#fff;transform:translateY(-3px);box-shadow:0 5px 0 light-dark(#7a1e0e,#000)}.k.on i{color:#fff}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;margin-top:10px;justify-content:center}
+.legend span{display:flex;gap:6px;align-items:center}.legend em{width:16px;height:16px;border-radius:4px;display:inline-block}
+/* home */
+.hero{display:grid;grid-template-columns:minmax(0,1fr);gap:20px}
+.paths{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.path{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;cursor:pointer;text-align:left;min-height:120px}
+.path:hover{border-color:var(--acc)}.path h3{margin-bottom:4px}.path p{margin:0;color:var(--mute);font-size:14.5px}
+.path small{display:block;color:var(--acc);font-weight:700;font-size:13px;margin-bottom:4px}
+/* drills */
+.stats{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.stat{background:var(--soft);border-radius:10px;padding:6px 14px;min-width:96px}
+.stat b{display:block;font-size:24px;font-variant-numeric:tabular-nums;line-height:1.2}.stat span{font-size:13px;color:var(--mute)}
+.stage{position:relative;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:22px;min-height:170px;outline:none;margin-bottom:10px}
+.stage:focus{border-color:var(--ink)}
+.cover{position:absolute;inset:0;display:none;place-items:center;background:light-dark(#ffffffcc,#211e1bd9);border-radius:12px;font-weight:700;font-size:19px;cursor:pointer}
+.stage.live:not(:focus) .cover{display:grid}
+.tx{font:28px/1.8 ui-monospace,Consolas,"Courier New",monospace;white-space:pre-wrap;word-break:break-word;letter-spacing:.02em}
+.tx span{border-radius:3px}.tx .ok{color:var(--ok)}.tx .cur{background:var(--acc);color:#fff}
+.shake{animation:sh .25s}@keyframes sh{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.tx .cur.err{background:#000;color:#fff}
+.hint{min-height:1.6em;margin:2px 0 10px;font-weight:500}
+.zbig{font-size:clamp(64px,10vw,104px);font-weight:900;line-height:1.1;text-align:center}
+.zrow{display:flex;gap:8px;justify-content:center;margin:10px 0 6px;flex-wrap:wrap}
+.zs{min-width:52px;height:52px;padding:0 6px;border:2px solid var(--line);border-radius:10px;display:grid;place-items:center;font-size:26px;font-weight:700;line-height:1}
+.zs small{font-size:11px;font-weight:500;color:var(--mute)}.zs.ok{border-color:var(--ok);color:var(--ok)}.zs.cur{border-color:var(--acc);background:var(--acc);color:#fff}.zs.cur small{color:#fff}
+.next{display:flex;gap:10px;justify-content:center;color:var(--mute);font-size:22px}
+.res{text-align:center}.res .big{font-size:clamp(48px,8vw,76px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+.res .lv{display:inline-block;margin:8px 0;padding:4px 16px;border-radius:999px;background:var(--acc);color:#fff;font-weight:700;font-size:18px}
+.word{font-size:clamp(40px,7vw,72px);font-weight:900;text-align:center;line-height:1.2;min-height:1.2em}
+.wzy{text-align:center;color:var(--acc);font-size:20px;min-height:1.6em;letter-spacing:.15em}
+.bigin{width:100%;font-size:26px!important;text-align:center;padding:12px!important;min-height:60px!important}
+.flash-ok{border-color:var(--ok)!important}.flash-bad{border-color:var(--bad)!important}
+/* punct */
+table{border-collapse:collapse;width:100%}th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:14px;color:var(--mute);font-weight:500}
+.sym{font-size:30px;font-weight:900;width:64px;text-align:center}
+kbd{display:inline-block;border:1px solid var(--line);border-bottom-width:3px;border-radius:6px;padding:1px 8px;font:600 14px/1.6 ui-monospace,Consolas,monospace;background:var(--soft);white-space:nowrap}
+.steps{margin:0;padding-left:1.3em}.steps li{margin:4px 0}
+.try{white-space:nowrap}.tin{width:84px;font-size:24px!important;text-align:center;padding:4px!important}.tres{display:inline-block;min-width:5.5em;margin-left:8px;font-size:14px;font-weight:700}.tres.ok{color:var(--ok)}.tres.bad{color:var(--bad)}
+.tipgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin:12px 0}
+.tip{border:1px solid var(--line);border-radius:12px;padding:14px 16px}.tip p{margin:8px 0 0;font-size:15px}.tip ul{font-size:15px}
+.mock{position:relative;background:var(--soft);border-radius:8px;padding:10px 14px;font-size:24px;min-height:52px;display:flex;align-items:flex-start;gap:2px}
+.dash{border-bottom:2px dashed var(--ink);line-height:1.3}.caret{width:2px;height:28px;background:var(--ink);animation:bl 1s steps(1) infinite}
+@keyframes bl{50%{opacity:0}}
+.cand{display:flex;flex-direction:column;font-size:15px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px 0;margin-left:10px;box-shadow:0 3px 8px #0002}
+.cand span{padding:3px 14px 3px 12px;border-left:3px solid transparent}.cand b{color:var(--mute);font-weight:400;margin-right:10px}.cand .sel{background:var(--soft);border-left-color:light-dark(#1b6b73,#5fc4cc)}
+.note{background:var(--soft);border-left:4px solid var(--acc);padding:10px 14px;border-radius:6px;margin:12px 0}
+/* exam */
+.timer{font-size:clamp(40px,6vw,60px);font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
+.ln{margin-bottom:12px}
+.tg{font-size:var(--xf);line-height:1.7;letter-spacing:.08em;padding:0 13px;word-break:break-all;white-space:pre-wrap}
+#lines{--xf:clamp(15px,1.85vw,22px)}
+.tg span.ok{color:var(--ok)}.tg span.bad{color:var(--bad);background:light-dark(#fde2dc,#4a1f17)}.tg span.cur{box-shadow:inset 0 -3px var(--cur)}
+.tg.en,.ip.en{font-family:ui-monospace,Consolas,monospace;letter-spacing:0}
+.ip{width:100%;font-size:var(--xf)!important;letter-spacing:.08em;padding:8px 12px!important;line-height:1.7}
+.ip[readonly]{background:var(--soft)}
+.lvtab td,.lvtab th{text-align:center;padding:6px}
+.badge{display:inline-block;padding:1px 10px;border-radius:999px;background:var(--soft);font-size:13px}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.scroll{overflow-x:auto}
+.modal{position:fixed;inset:0;background:#0007;display:none;place-items:center;z-index:20;padding:16px}
+.modal.open{display:grid}.modal .card{max-width:440px;width:100%;margin:0}
+@media(max-width:600px){table{font-size:14px}.tx{font-size:22px}.tg{font-size:19px}nav a{padding:6px 9px;font-size:14px}}
+@media(prefers-reduced-motion:reduce){.k,.shake{transition:none;animation:none}}
+</style>
+</head>
+<body>
+<header class="top"><div class="topin">
+ <div class="brand" data-go="home"><i>打</i>中英文打字練習</div>
+ <nav id="nav">
+  <a href="#home" data-r="home">首頁</a><a href="#keys" data-r="keys">指法</a>
+  <a href="#zhuyin" data-r="zhuyin">注音鍵位</a><a href="#chinese" data-r="chinese">中打</a><a href="#punct" data-r="punct">標點符號</a>
+  <a href="#english" data-r="english">英打</a><a href="#exam" data-r="exam">檢定</a><a href="#records" data-r="records">成績</a><a href="#teacher" data-r="teacher">教師</a>
+ </nav>
+ <button class="who" id="who" type="button">座號／暱稱：未設定</button>
+</div></header>
+<main id="app"></main>
+<div class="modal" id="modal"><div class="card" id="mbox"></div></div>
+
+<script>
+{
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const K={rec:'typing.records',user:'typing.user',art:'typing.customArticles'};
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const pick=(a,n)=>shuffle(a).slice(0,n);
+
+/* ---------- 鍵盤資料 ---------- */
+const ROWS=[[['','blank',1,0],...'1234567890-=',['Backspace','bs',2,7]],[['Tab','tab',1.5,0],...'qwertyuiop[]',['\\','\\',1.5,7]],[['Caps','caps',1.75,0],...'asdfghjkl;\'',['Enter','enter',2.25,7]],[['Shift','shiftL',2.25,0],...'zxcvbnm,./',['Shift','shiftR',2.75,7]],[['Ctrl','ctrlL',1.5,0],['Alt','altL',1.5,8],['空白鍵',' ',9,8],['Alt','altR',1.5,8],['Ctrl','ctrlR',1.5,7]]];
+const SPECIAL={Enter:'enter',Backspace:'bs',Tab:'tab',CapsLock:'caps',ShiftLeft:'shiftL',ShiftRight:'shiftR',ControlLeft:'ctrlL',ControlRight:'ctrlR',AltLeft:'altL',AltRight:'altR'};
+const SPNAME={enter:'Enter 鍵',bs:'Backspace（倒退鍵）',tab:'Tab 鍵',caps:'Caps Lock（大寫鎖定）',shiftL:'左 Shift',shiftR:'右 Shift',ctrlL:'左 Ctrl',ctrlR:'右 Ctrl',altL:'左 Alt',altR:'右 Alt'};
+const SPFIN={enter:7,bs:7,tab:0,caps:0,shiftL:0,shiftR:7,ctrlL:0,ctrlR:7,altL:8,altR:8};
+const FINGER={};const fset=(s,f)=>[...s].forEach(k=>FINGER[k]=f);
+fset('`1qaz',0);fset('2wsx',1);fset('3edc',2);fset('45rtfgvb',3);fset('67yuhjnm',4);fset('8ik,',5);fset('9ol.',6);fset("0p;/-=[]'\\",7);
+const FN=['左手小指','左手無名指','左手中指','左手食指','右手食指','右手中指','右手無名指','右手小指'];
+const SHIFTED={'`':'~','1':'!','2':'@','3':'#','4':'$','5':'%','6':'^','7':'&','8':'*','9':'(','0':')','-':'_','=':'+','[':'{',']':'}','\\':'|',';':':',"'":'"',',':'<','.':'>','/':'?'};
+const UNSHIFT=Object.fromEntries(Object.entries(SHIFTED).map(([a,b])=>[b,a]));
+const ZY={'1':'ㄅ','q':'ㄆ','a':'ㄇ','z':'ㄈ','2':'ㄉ','w':'ㄊ','s':'ㄋ','x':'ㄌ','e':'ㄍ','d':'ㄎ','c':'ㄏ','r':'ㄐ','f':'ㄑ','v':'ㄒ','5':'ㄓ','t':'ㄔ','g':'ㄕ','b':'ㄖ','y':'ㄗ','h':'ㄘ','n':'ㄙ','u':'ㄧ','j':'ㄨ','m':'ㄩ','8':'ㄚ','i':'ㄛ','k':'ㄜ',',':'ㄝ','9':'ㄞ','o':'ㄟ','l':'ㄠ','.':'ㄡ','0':'ㄢ','p':'ㄣ',';':'ㄤ','/':'ㄥ','-':'ㄦ','3':'ˇ','4':'ˋ','6':'ˊ','7':'˙'};
+const ZY_REV=Object.fromEntries(Object.entries(ZY).map(([k,v])=>[v,k]));
+const CODE={Backquote:'`',Minus:'-',Equal:'=',BracketLeft:'[',BracketRight:']',Backslash:'\\',Semicolon:';',Quote:"'",Comma:',',Period:'.',Slash:'/',Space:' '};
+function codeKey(code){if(/^Key[A-Z]$/.test(code))return code[3].toLowerCase();if(/^Digit\d$/.test(code))return code[5];return CODE[code]}
+
+function kbHTML(zy){
+ const key=k=>{if(Array.isArray(k)){const[l,id,w,f]=k;return `<span class="k f${f} fn${id==='blank'?' blank':''}" style="--w:${w}" data-k="${esc(id)}">${SHIFTED[id]?`<em>${esc(SHIFTED[id])}</em>`:''}<b>${esc(l)}</b>${zy&&id===' '?'<i>一聲</i>':''}</span>`}
+  return `<span class="k f${FINGER[k]}${k==='f'||k==='j'?' bump':''}" data-k="${esc(k)}">${SHIFTED[k]?`<em>${esc(SHIFTED[k])}</em>`:''}<b>${esc(k.toUpperCase())}</b>${zy&&ZY[k]?`<i>${ZY[k]}</i>`:''}</span>`};
+ return `<div class="kb" aria-hidden="true">${ROWS.map((r,i)=>`<div class="kr r${i}">${r.map(key).join('')}</div>`).join('')}</div>`;
+}
+const legendHTML=()=>`<div class="legend">${[['--f0','小指'],['--f1','無名指'],['--f2','中指'],['--f3','左食指'],['--f4','右食指'],['--f8','大拇指']].map(([v,n])=>`<span><em style="background:var(${v})"></em>${n}</span>`).join('')}</div>`;
+function kbMark(root,keys){$$('.k.on',root).forEach(e=>e.classList.remove('on'));(keys||[]).forEach(k=>{const e=root.querySelector(`[data-k="${CSS.escape(k)}"]`);e&&e.classList.add('on')})}
+function keysFor(c){
+ if(c===' ')return[' '];let b=c,sh=false;
+ if(/[A-Z]/.test(c)){b=c.toLowerCase();sh=true}else if(UNSHIFT[c]){b=UNSHIFT[c];sh=true}
+ if(FINGER[b]===undefined)return[];const r=[b];if(sh)r.push(FINGER[b]<=3?'shiftR':'shiftL');return r;
+}
+const fingerOf=k=>k===' '?'大拇指':FN[FINGER[k]]||'';
+const keyName=k=>k===' '?'空白鍵':k.toUpperCase();
+
+/* ---------- 題庫 ---------- */
+const ZYD={};
+`大ㄉㄚˋ 小ㄒㄧㄠˇ 上ㄕㄤˋ 下ㄒㄧㄚˋ 人ㄖㄣˊ 天ㄊㄧㄢ 山ㄕㄢ 水ㄕㄨㄟˇ 火ㄏㄨㄛˇ 花ㄏㄨㄚ 草ㄘㄠˇ 書ㄕㄨ 學ㄒㄩㄝˊ 校ㄒㄧㄠˋ 老ㄌㄠˇ 師ㄕ 同ㄊㄨㄥˊ 家ㄐㄧㄚ 愛ㄞˋ 好ㄏㄠˇ 早ㄗㄠˇ 安ㄢ 月ㄩㄝˋ 日ㄖˋ 雨ㄩˇ 風ㄈㄥ 雲ㄩㄣˊ 魚ㄩˊ 鳥ㄋㄧㄠˇ 狗ㄍㄡˇ 貓ㄇㄠ 我ㄨㄛˇ 你ㄋㄧˇ 他ㄊㄚ 吃ㄔ 飯ㄈㄢˋ 跑ㄆㄠˇ 走ㄗㄡˇ 看ㄎㄢˋ 聽ㄊㄧㄥ 說ㄕㄨㄛ 寫ㄒㄧㄝˇ 字ㄗˋ 中ㄓㄨㄥ 文ㄨㄣˊ 國ㄍㄨㄛˊ 生ㄕㄥ 心ㄒㄧㄣ 手ㄕㄡˇ 白ㄅㄞˊ 紅ㄏㄨㄥˊ 綠ㄌㄩˋ 黑ㄏㄟ 春ㄔㄨㄣ 秋ㄑㄧㄡ 冬ㄉㄨㄥ 夏ㄒㄧㄚˋ 兒ㄦˊ 歌ㄍㄜ 快ㄎㄨㄞˋ 樂ㄌㄜˋ 門ㄇㄣˊ 車ㄔㄜ 路ㄌㄨˋ 開ㄎㄞ 去ㄑㄩˋ 來ㄌㄞˊ 坐ㄗㄨㄛˋ 年ㄋㄧㄢˊ 朋ㄆㄥˊ 友ㄧㄡˇ 玩ㄨㄢˊ 星ㄒㄧㄥ 海ㄏㄞˇ 船ㄔㄨㄢˊ 飛ㄈㄟ 點ㄉㄧㄢˇ 西ㄒㄧ 東ㄉㄨㄥ 南ㄋㄢˊ 北ㄅㄟˇ 熊ㄒㄩㄥˊ 蛋ㄉㄢˋ 謝ㄒㄧㄝˋ 也ㄧㄝˇ 都ㄉㄡ 很ㄏㄣˇ 三ㄙㄢ 四ㄙˋ 空ㄎㄨㄥ 樹ㄕㄨˋ 林ㄌㄧㄣˊ 森ㄙㄣ 高ㄍㄠ 太ㄊㄞˋ 陽ㄧㄤˊ 的ㄉㄜ˙
+運ㄩㄣˋ 動ㄉㄨㄥˋ 會ㄏㄨㄟˋ 習ㄒㄧˊ 班ㄅㄢ 級ㄐㄧˊ 電ㄉㄧㄢˋ 腦ㄋㄠˇ 打ㄉㄚˇ 練ㄌㄧㄢˋ 努ㄋㄨˇ 力ㄌㄧˋ 認ㄖㄣˋ 真ㄓㄣ 自ㄗˋ 然ㄖㄢˊ 環ㄏㄨㄢˊ 境ㄐㄧㄥˋ 保ㄅㄠˇ 護ㄏㄨˋ 健ㄐㄧㄢˋ 康ㄎㄤ 全ㄑㄩㄢˊ 地ㄉㄧˋ 球ㄑㄧㄡˊ 世ㄕˋ 界ㄐㄧㄝˋ 和ㄏㄜˊ 平ㄆㄧㄥˊ 合ㄏㄜˊ 作ㄗㄨㄛˋ 分ㄈㄣ 享ㄒㄧㄤˇ 勇ㄩㄥˇ 敢ㄍㄢˇ 誠ㄔㄥˊ 實ㄕˊ 禮ㄌㄧˇ 貌ㄇㄠˋ 感ㄍㄢˇ 圖ㄊㄨˊ 館ㄍㄨㄢˇ 科ㄎㄜ 技ㄐㄧˋ 資ㄗ 訊ㄒㄩㄣˋ 時ㄕˊ 間ㄐㄧㄢ 計ㄐㄧˋ 畫ㄏㄨㄚˋ 希ㄒㄧ 望ㄨㄤˋ 夢ㄇㄥˋ 想ㄒㄧㄤˇ 成ㄔㄥˊ 功ㄍㄨㄥ 經ㄐㄧㄥ 驗ㄧㄢˋ 觀ㄍㄨㄢ 察ㄔㄚˊ 思ㄙ 考ㄎㄠˇ 解ㄐㄧㄝˇ 決ㄐㄩㄝˊ 問ㄨㄣˋ 題ㄊㄧˊ 責ㄗㄜˊ 任ㄖㄣˋ 尊ㄗㄨㄣ 重ㄓㄨㄥˋ 態ㄊㄞˋ 度ㄉㄨˋ 機ㄐㄧ`.split(/\s+/).forEach(s=>{ZYD[s[0]]=s.slice(1)});
+const ZY_CHARS=Object.keys(ZYD).slice(0,108);
+const ZY_GROUPS={'聲母':'ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙ','韻母':'ㄧㄨㄩㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦ','聲調':'ˊˇˋ˙'};
+ZY_GROUPS['全部符號']=ZY_GROUPS['聲母']+ZY_GROUPS['韻母']+ZY_GROUPS['聲調'];
+const WORDS={
+ '中年級語詞':'學校 老師 同學 朋友 早安 花草 天空 大海 小鳥 白雲 春天 夏天 秋天 冬天 中文 家人 開心 快樂 下雨 日月 山水 火車 小狗 小貓 紅花 黑貓 寫字 看書 聽歌 吃飯 走路 生日 白天 飛魚 星空 大樹 森林 太陽 高山'.split(' '),
+ '高年級語詞':'認真 努力 練習 環境 保護 健康 安全 地球 世界 和平 合作 分享 勇敢 誠實 禮貌 感謝 圖書館 科技 資訊 時間 計畫 希望 夢想 成功 經驗 觀察 思考 解決 問題 責任 尊重 態度 機會 電腦 打字 運動會 自然 班級 學習'.split(' '),
+ '成語':'一心一意 三心二意 半途而廢 全力以赴 持之以恆 熟能生巧 循序漸進 專心致志 自言自語 井底之蛙 守株待兔 畫蛇添足 亡羊補牢 對牛彈琴 一石二鳥 七上八下 十全十美 百發百中 千載難逢 萬眾一心 四面八方 五顏六色 九牛一毛 舉一反三 有始有終 胸有成竹 眉開眼笑 手舞足蹈 津津有味 興高采烈'.split(' ')
+};
+const wordZy=w=>[...w].every(c=>ZYD[c])?[...w].map(c=>ZYD[c]).join('　'):'';
+const EN_WORDS={
+ '中年級單字':'cat dog sun book pen red blue fish milk cake ball tree bird home school apple happy water friend family'.split(' '),
+ '高年級單字':'computer keyboard library science teacher student island weather holiday beautiful practice important together birthday elephant vegetable dinosaur rainbow umbrella adventure'.split(' ')
+};
+const EN_LETTERS={'基本列':'asdfghjkl;','上排':'qwertyuiop','下排':'zxcvbnm,./','數字列':'1234567890','全部字母':'abcdefghijklmnopqrstuvwxyz'};
+const ARTICLES=[
+ {"id":"z1","lang":"zh","grade":"中年級","title":"雨天的教室","lines":["早上下起了大雨，窗外的樹葉被雨水洗得亮亮的。","同學們撐著五顏六色的雨傘，一個接一個走進校門。","大家走進教室，把雨傘收好，整齊地放在門口的傘架上。","小明的褲管濕了一大片，他皺著眉頭說：「好冷喔！」","老師拿出一條乾毛巾遞給他，笑著說：「先擦一擦，別著涼了。」","第一節是國語課，老師請我們打開課本，一起朗讀新的課文。","窗外的雨越下越大，打在屋簷上，發出滴滴答答的聲音。","那聲音好像有節奏的鼓聲，正在為我們的朗讀打拍子。","下課時，大家不能到操場玩，只好留在教室裡。","有人下棋，有人看書，也有人趴在窗邊看雨。","我和好朋友小美一起畫畫，我們畫了一隻撐著雨傘的青蛙。","小美說：「青蛙最喜歡下雨天了，牠一定很開心。」","我想了想，在青蛙旁邊又畫了一道彩虹。","中午的時候，雨終於停了，天空露出了一點點藍色。","陽光從雲縫裡照下來，操場上的水窪閃閃發亮。","老師說：「你們看，雨過天晴，世界變得好乾淨。」","雖然今天不能到外面玩，但是雨天的教室一樣充滿了樂趣。"]},
+ {"id":"z2","lang":"zh","grade":"中年級","title":"我的小黑狗","lines":["我家有一隻小黑狗，名字叫做豆豆。","牠全身的毛黑得發亮，只有胸前有一小塊白色的毛，像戴了一條小領巾。","豆豆是去年冬天來到我們家的。","那天爸爸下班回家，懷裡抱著一個紙箱，箱子裡傳出小小的叫聲。","我打開一看，原來是一隻瘦瘦小小的小狗，正睜著圓圓的眼睛看著我。","從那天起，豆豆就成了我們家的一分子。","豆豆最喜歡在院子裡追著球跑來跑去。","我把球丟得遠遠的，牠就飛快地衝出去，再把球叼回來放在我的腳邊。","如果我假裝沒看到，牠就會用鼻子頂一頂我的手，好像在說：「再丟一次嘛！」","每天放學回家，豆豆都會坐在門口，搖著尾巴等我。","我摸摸牠的頭，說：「豆豆，我回來了！」","牠就開心得在地上打滾，露出軟軟的肚子讓我摸。","不過，豆豆也有調皮的時候。","有一次，牠把媽媽的拖鞋咬破了，還把衛生紙拉得滿地都是。","媽媽生氣地說：「豆豆，你又闖禍了！」","豆豆卻低著頭，用無辜的眼神看著媽媽，讓大家都忍不住笑了出來。","我會負責幫豆豆倒水、餵飯，週末還會帶牠去公園散步。","照顧豆豆讓我學會了責任，也讓我知道，小動物需要我們用心陪伴。"]},
+ {"id":"z3","lang":"zh","grade":"中年級","title":"公園的早晨","lines":["星期天早上，爸爸叫我起床，說要帶我去公園散步。","我揉揉眼睛，雖然還想睡，但還是換好衣服，跟著爸爸出門了。","一走進公園，清涼的空氣迎面而來，讓我一下子清醒了許多。","公園裡已經有很多人了。","有人沿著步道慢跑，有人在大樹下打太極拳，動作又慢又穩。","草地上，幾位阿姨跟著音樂跳舞，臉上都帶著笑容。","池塘邊有一位老爺爺在餵魚，紅色、黃色的魚兒全都游了過來。","小鳥在樹上唱歌，花朵在路邊點頭，好像在跟我們說早安。","我在草叢裡發現一隻小蝸牛，牠背著殼，慢慢地往前爬。","我蹲下來看了好久，爸爸說：「你看，牠雖然走得慢，可是從來不停下來。」","我們走到公園的另一邊，那裡有一座小小的木橋。","站在橋上往下看，水面像一面鏡子，映出藍天和白雲。","走累了，我們坐在長椅上休息，爸爸買了兩杯豆漿。","熱熱的豆漿喝下去，全身都暖和了起來。","爸爸問我：「你看，早起是不是很舒服？」","我點點頭，深深吸了一口新鮮的空氣。","我跟爸爸約好，以後每個星期天，我們都要一起來公園散步。"]},
+ {"id":"z4","lang":"zh","grade":"高年級","title":"校園裡的老榕樹","lines":["學校操場旁邊，有一棵比校舍還老的榕樹。","聽說在學校蓋好以前，它就已經站在這裡，默默看著這片土地的變化。","它的樹幹很粗，要三個五年級的學生手拉著手，才能把它圍起來。","它的樹枝向四面八方伸展，像一把撐開的大傘。","夏天的時候，陽光熾熱，操場被曬得發燙，只有榕樹下總是一片清涼。","從樹枝上垂下來的氣根，像老爺爺的長鬍子，在風中輕輕搖擺。","下課鐘一響，同學們就喜歡往榕樹下跑。","有人坐在樹根上聊天，有人靠著樹幹看書，也有人蹲在地上，觀察爬上樹幹的螞蟻。","低年級的小朋友最喜歡在樹下玩捉迷藏，笑聲常常傳遍整個操場。","自然課時，老師也會帶我們到樹下上課。","老師告訴我們，榕樹的氣根碰到地面後，會慢慢變粗，變成新的樹幹，所以榕樹可以長得又大又廣。","我們拿著放大鏡，仔細觀察葉子上的紋路，還把看到的東西畫在學習單上。","去年秋天，一個強烈颱風來襲，整夜狂風暴雨。","第二天到學校，大家都嚇了一跳：地上滿是斷掉的枝葉，老榕樹也少了好幾根大樹枝。","同學們圍在樹旁，有人擔心地問：「它會不會就這樣死掉？」","工友伯伯一邊清理樹枝，一邊說：「別擔心，它的根很深，會再長出新芽的。」","接下來的幾個星期，我每天經過榕樹，都會抬頭看一看。","果然，一個月後，光禿禿的枝頭冒出了嫩綠的新葉，在陽光下閃閃發亮。","那一刻，我覺得老榕樹好像在對我們微笑。","現在，老榕樹又恢復了茂密的樣子，繼續替我們遮風擋雨。","每次坐在它的樹蔭下，我都會想起那場颱風，也想起工友伯伯說的話。","我想，做人也應該像老榕樹一樣，把根扎得穩、扎得深。","這樣，不管遇到多大的風雨，都能挺直身子，等待重新長出新葉的那一天。","畢業以後，我們會離開這所學校，但老榕樹會繼續守護一屆又一屆的學弟妹。","希望有一天回到母校時，還能在它的樹蔭下，聽見熟悉的蟬聲與笑聲。"]},
+ {"id":"z5","lang":"zh","grade":"高年級","title":"第一次上臺報告","lines":["這學期的社會課，老師要每個人選一個關心的議題，上臺做五分鐘的報告。","聽到這個消息，我的心裡就像打翻了五味瓶，又期待，又緊張。","我從來沒有一個人站在全班面前說話，光是想像那個畫面，手心就開始冒汗。","經過好幾天的思考，我決定以「海洋垃圾」作為報告的主題。","因為暑假去海邊玩的時候，我看到沙灘上有好多寶特瓶、塑膠袋和斷掉的漁網，心裡覺得很難過。","為了準備報告，我到圖書館借了相關的書，也請爸爸陪我上網查資料。","我把找到的內容整理成重點，再做成簡報，並且加上一些照片，讓同學更容易了解。","媽媽建議我先在家裡練習，於是我把家人當成觀眾，一遍又一遍地練習。","一開始，我常常說到一半就忘詞，聲音也小得像蚊子叫。","弟弟還開玩笑說：「哥哥，你是在說悄悄話嗎？」","我不服氣，又練習了好多次，慢慢地，我越說越流暢，聲音也越來越有自信。","報告那天終於到了。","輪到我上臺時，我的心跳越來越快，雙腳好像踩在棉花上。","我深吸一口氣，看著臺下的同學，開始介紹我的主題：海洋垃圾。","我說明塑膠瓶、吸管和漁網如何漂進大海，又如何傷害海龜、海鳥與魚群。","當我播放一張海龜被塑膠繩纏住的照片時，教室裡安靜得連一根針掉下來都聽得見。","最後，我提出三個建議：自備環保餐具、減少使用塑膠袋，以及參加淨灘活動。","報告結束後，教室裡響起了熱烈的掌聲。","老師對我說：「你準備得很充分，聲音也很清楚，最重要的是，你讓大家開始思考。」","下課後，還有好幾位同學跑來問我，下次淨灘活動可不可以一起參加。","那一刻，我明白緊張並不可怕；只要認真準備，就能勇敢面對。","後來，我們班真的報名了社區的淨灘活動，一起把沙灘上的垃圾撿得乾乾淨淨。","看著恢復乾淨的海灘，我覺得那次上臺報告的緊張，全都值得了。","這次的經驗讓我更有自信，也讓我發現，一個人的聲音，也能帶來小小的改變。"]},
+ {"id":"z6","lang":"zh","grade":"高年級","title":"打字的祕訣","lines":["五年級開學後，資訊課開始教我們中文打字。","剛開始學打字時，我總是低著頭找鍵盤上的注音符號，打得又慢又容易錯。","有時候好不容易打完一句話，抬頭一看，才發現有好幾個字選錯了，只好全部刪掉重來。","看著旁邊的同學手指飛快地在鍵盤上跳舞，我心裡又羨慕又著急。","資訊老師看出了我的煩惱，走過來對我說：「手指要放在基本鍵上，眼睛看螢幕，不要看鍵盤。」","老師還告訴我，每一根手指都有自己負責的按鍵，只要記住位置，就不用再低頭尋找。","聽完老師的話，我決定好好練習。","於是，我每天放學後都練習十分鐘，先求正確，再求速度。","一開始真的很不習慣，手指常常按錯鍵，我也好幾次想要放棄。","媽媽鼓勵我：「學騎腳踏車的時候，你也跌倒過很多次，後來不是騎得很好嗎？」","想到這裡，我又重新打起精神，繼續練習。","我先在打字網站上練習注音鍵位，把每個符號的位置記熟。","接著，我開始練習語詞和成語，最後再挑戰整篇文章。","我還在筆記本上記錄每天的速度，看著數字一點一點變大，心裡非常有成就感。","過了兩個星期，我發現自己不用低頭也能找到按鍵。","又過了一個月，我在班上的打字測驗中，從原本的每分鐘八個字，進步到每分鐘二十五個字。","老師在全班面前稱讚我，還請我分享練習的方法。","我站起來說：「我沒有什麼特別的祕訣，就是每天練習一點點，不要放棄。」","現在，我已經可以一邊看文章，一邊流暢地打出文字。","寫作業、查資料或是和遠方的親戚寫信，都變得輕鬆多了。","上個月，學校舉辦打字比賽，我鼓起勇氣報名參加，雖然沒有得到第一名，卻打出了自己最好的成績。","比賽結束後，我把獎狀拿給媽媽看，她摸摸我的頭說：「我就知道你做得到。」","這段經驗讓我明白，任何能力都不是一天就能學會的。","原來，進步的祕訣就是：正確的方法，加上每天的堅持。"]},
+ {"id":"z7","lang":"zh","grade":"中年級","title":"我的好朋友","lines":["我的好朋友叫做小安，她坐在我的隔壁。","小安的頭髮短短的，笑起來眼睛會變成彎彎的月亮。","她很會畫畫，常常在下課時畫可愛的小動物送給我。","放學後，我們常常一起走到校門口，邊走邊聊天。","有一次我忘了帶彩色筆，小安馬上把她的借給我。","我說：「謝謝你！」她笑著說：「好朋友就是要互相幫忙啊！」","上星期我感冒請假，小安幫我把功課抄在聯絡簿上，還寫了一張小卡片要我早點好起來。","收到卡片時，我心裡覺得暖暖的。","我希望我們可以一直當好朋友，一起長大。"]},
+ {"id":"z8","lang":"zh","grade":"中年級","title":"下課十分鐘","lines":["噹噹噹，下課鐘響了，大家像小鳥一樣飛出教室。","下課前，老師提醒我們：「玩的時候要注意安全，也別忘了喝水和上廁所。」","所以我每次下課，都會先去裝水，再跑去找同學。","有人跑到操場玩鬼抓人，有人在走廊跳繩。","有時候，我也會留在教室裡看一本有趣的故事書。","我最喜歡和同學在沙坑旁邊玩球，大家輪流丟、輪流接。","玩得正開心時，上課鐘又響了。","我們趕快洗手，排好隊走回教室。","雖然下課只有十分鐘，卻是我一天中最快樂的時光。"]},
+ {"id":"z9","lang":"zh","grade":"中年級","title":"媽媽的早餐","lines":["每天早上，媽媽總是第一個起床，在廚房裡忙著做早餐。","香噴噴的荷包蛋、烤得金黃的吐司，還有一杯溫溫的牛奶。","有時候她還會做我最喜歡的蔥抓餅，配上一碗熱熱的玉米濃湯。","媽媽說，早餐是一天中最重要的一餐，吃飽了才有精神上課。","我問媽媽：「你每天這麼早起，不累嗎？」","媽媽摸摸我的頭說：「看到你們吃得開心，我就不累了。」","星期天，我決定早一點起床，幫媽媽煎一顆荷包蛋。","媽媽吃了一口，笑著說：「這是我吃過最好吃的早餐！」","那天，我覺得自己好像長大了一點，也更懂得媽媽的辛苦。"]},
+ {"id":"z10","lang":"zh","grade":"高年級","title":"一場難忘的比賽","lines":["上個星期，我們班參加了全校的大隊接力比賽。","為了這場比賽，大家每天中午都到操場練習交棒。","比賽前一天晚上，我還在腦海裡一遍又一遍地練習接棒的動作。","比賽開始後，我們班一路領先，同學們在旁邊大聲加油。","沒想到，輪到我接棒時，我太緊張了，棒子竟然掉在地上。","我趕緊撿起棒子，拚命往前跑，可是已經被兩個班級超越了。","最後，我們得到第三名，我難過得低下頭，覺得都是自己的錯。","這時，隊長拍拍我的肩膀說：「沒關係，我們是一個團隊，輸贏大家一起承擔。」","其他同學也圍過來安慰我，還說明年一定要再一起挑戰。","回到教室後，老師也對我們說：「你們每個人都盡了全力，老師以你們為榮。」","那一刻，我的眼眶濕了。","這場比賽雖然沒有得到第一名，卻讓我明白：真正的團隊，不只在贏的時候在一起，失敗時也會互相扶持。","從那天起，我更加努力練跑，也更珍惜和同學們一起奮鬥的時光。"]},
+ {"id":"z11","lang":"zh","grade":"高年級","title":"圖書館裡的祕密","lines":["學校的圖書館在三樓的角落，是我最喜歡的地方。","一推開門，就能聞到淡淡的書香，安靜的空氣讓人心情平靜。","圖書館裡有好多種類的書，有科學百科、歷史故事，也有世界各地的繪本。","我最喜歡坐在窗邊的位置，陽光灑在書頁上，讓人捨不得離開。","每週三的午休時間，我都會來這裡當小志工，幫忙整理歸還的書。","有一天，我在書架最底層發現一本舊舊的童話書，書裡夾著一張泛黃的卡片。","卡片上寫著：「希望下一個讀到這本書的人，也能愛上閱讀。」","我好奇地問圖書館阿姨，這張卡片是誰留下的。","阿姨笑著說：「這是很多年前一位學姊寫的，她現在已經是一位作家了。」","阿姨還說，學姊小時候也和我一樣，每天中午都來圖書館看書。","聽完之後，我覺得好神奇，原來一本書可以連起不同時間的人。","後來，我也寫了一張卡片，夾在我最喜歡的一本書裡。","不知道未來的哪一天，會有誰發現我留下的祕密呢？"]},
+ {"id":"z12","lang":"zh","grade":"高年級","title":"學會說謝謝","lines":["以前，我總覺得別人幫我是理所當然的事。","媽媽幫我準備便當、同學借我文具、警衛伯伯每天在校門口指揮交通，我從來沒有想過要說聲謝謝。","有一次，我把便當忘在家裡，是隔壁的同學分了一半的飯給我，我卻只是點點頭。","直到有一天，老師在班上進行一個活動，要我們每天寫下三件值得感謝的事。","一開始，我覺得很難，不知道要寫什麼。","可是當我開始注意身邊的小事，才發現原來有這麼多人在默默照顧我。","於是，我試著把「謝謝」說出口。","早上經過校門口時，我對警衛伯伯說：「伯伯，謝謝您！」","伯伯愣了一下，接著露出大大的笑容，向我揮揮手。","那天，我的心情一整天都很好。","現在，每天回家吃晚餐時，我也會對媽媽說：「謝謝媽媽，晚餐好好吃！」","我發現，一句簡單的謝謝，不只讓別人開心，也讓自己變得更快樂。"]},
+ {id:'e1',lang:'en',grade:'中年級',title:'My School Day',lines:['I go to school at seven thirty.','My teacher says good morning to us.','We read books and sing songs in class.','At noon, I eat lunch with my friends.','After school, I go home and play with my dog.']},
+ {id:'e2',lang:'en',grade:'中年級',title:'The Park',lines:['There is a big park near my home.','I can see birds, trees, and flowers there.','My little sister likes to ride her bike.','I like to run and fly a kite.','We always have fun in the park.']},
+ {id:'e3',lang:'en',grade:'高年級',title:'Learning to Type',lines:['Typing is a useful skill in the modern world.','Keep your fingers on the home row keys.','Look at the screen, not at the keyboard.','Practice a little every day, and you will get faster.','Remember, accuracy comes first and speed comes next.']},
+ {id:'e4',lang:'en',grade:'高年級',title:'Save the Ocean',lines:['The ocean is home to many plants and animals.','Every year, tons of plastic end up in the sea.','Sea turtles may think plastic bags are food.','We can help by using less plastic and recycling more.','Small actions can make a big difference for our planet.']}
+];
+const allArticles=()=>ARTICLES.concat(store.get(K.art,[]));
+const PUNCT=[
+ {s:'，',n:'逗號',use:'句子還沒說完，需要停一下。',keys:['ctrlL',','],how:'<kbd>Ctrl</kbd> ＋ <kbd>,</kbd>'},
+ {s:'。',n:'句號',use:'一句話說完了。',keys:['ctrlL','.'],how:'<kbd>Ctrl</kbd> ＋ <kbd>.</kbd>'},
+ {s:'、',n:'頓號',use:'分開並列的詞語，例如：紅、黃、藍。',keys:['ctrlL',"'"],how:'<kbd>Ctrl</kbd> ＋ <kbd>\'</kbd>（L 右邊第二個鍵）'},
+ {s:'；',n:'分號',use:'分開兩個關係密切的句子。',keys:['ctrlL',';'],how:'<kbd>Ctrl</kbd> ＋ <kbd>;</kbd>'},
+ {s:'：',n:'冒號',use:'後面要說話、舉例或說明。',keys:['ctrlL','shiftR',';'],how:'<kbd>Ctrl</kbd> ＋ <kbd>Shift</kbd> ＋ <kbd>;</kbd>'},
+ {s:'？',n:'問號',use:'問問題的句子。',keys:['ctrlL','shiftL','/'],how:'<kbd>Ctrl</kbd> ＋ <kbd>Shift</kbd> ＋ <kbd>/</kbd>'},
+ {s:'！',n:'驚嘆號',use:'表示驚訝、高興或強烈的語氣。',keys:['ctrlL','shiftR','1'],how:'<kbd>Ctrl</kbd> ＋ <kbd>Shift</kbd> ＋ <kbd>1</kbd>'},
+ {s:'「',n:'上引號',use:'引用別人說的話（開始）。',keys:['ctrlL','['],how:'<kbd>Ctrl</kbd> ＋ <kbd>[</kbd> → 按 <kbd>↓</kbd> 選「 → <kbd>Enter</kbd>'},
+ {s:'」',n:'下引號',use:'引用別人說的話（結束）。',keys:['ctrlL',']'],how:'<kbd>Ctrl</kbd> ＋ <kbd>]</kbd> → <kbd>Enter</kbd>（沒有自動配對時按 <kbd>↓</kbd> 選」）'}
+];
+const PSENT=['我喜歡春天、夏天和秋天。','你今天吃早餐了嗎？','哇！這朵花好漂亮！','媽媽說：「天冷了，記得多穿一件衣服。」','老師問：「誰願意上臺分享？」','我們要準備三樣東西：筆、尺和橡皮擦。','下雨了；操場上一個人也沒有。','弟弟大聲喊：「我找到了！」','爸爸問我：「功課寫完了嗎？」','「加油！」同學們一起為選手打氣。'];
+const PUNCT_ONE=/[，。、；：？！「」『』（）《》〈〉—…]/;
+const PUNCT_RE=/[，。、；：？！「」『』（）《》〈〉—…,.;:?!"'()]/g;
+
+/* ---------- 等級與成績 ---------- */
+const ZH_LV=[[70,'大師'],[60,'達人'],[50,'專家'],[40,'高手'],[30,'高級'],[20,'中級'],[10,'初級'],[0,'入門']];
+const EN_LV=[[40,'大師'],[35,'達人'],[30,'專家'],[25,'高手'],[20,'高級'],[15,'中級'],[10,'初級'],[0,'入門']];
+const level=(lang,sp,acc)=>acc<80?'未評級':(lang==='zh'?ZH_LV:EN_LV).find(([t])=>sp>=t)[1];
+const user=()=>store.get(K.user,'');
+function addRecord(r){const a=store.get(K.rec,[]);a.unshift({...r,who:user(),at:Date.now()});store.set(K.rec,a.slice(0,800))}
+const fmtT=s=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+const pct=(a,b)=>b?Math.round(a/b*100):0;
+
+/* ---------- 對話框 ---------- */
+function modal(html,bind){const m=$('#modal');$('#mbox').innerHTML=html;m.classList.add('open');bind&&bind($('#mbox'));}
+const closeModal=()=>$('#modal').classList.remove('open');
+function confirmBox(msg,yes){modal(`<h3>請確認</h3><p>${esc(msg)}</p><div class="row"><button class="btn pri" id="my">確定</button><button class="btn" id="mn">取消</button></div>`,b=>{$('#my',b).onclick=()=>{closeModal();yes()};$('#mn',b).onclick=closeModal})}
+function setWho(){const w=user();$('#who').textContent='座號／暱稱：'+(w||'未設定')}
+$('#who').onclick=()=>modal(`<h3>輸入座號或暱稱</h3><p class="muted">只會存在這台電腦，用來分辨成績紀錄。請不要輸入真實姓名。</p><input type="text" id="wn" maxlength="12" value="${esc(user())}" placeholder="例如：12號 小海豚" style="width:100%"><div class="row" style="margin-top:12px"><button class="btn pri" id="ws">儲存</button><button class="btn" id="wc">取消</button></div>`,b=>{const i=$('#wn',b);i.focus();const save=()=>{store.set(K.user,i.value.trim());setWho();closeModal()};$('#ws',b).onclick=save;i.onkeydown=e=>{if(e.key==='Enter'&&!e.isComposing)save()};$('#wc',b).onclick=closeModal});
+$('#modal').onclick=e=>{if(e.target.id==='modal')closeModal()};
+
+/* ---------- 路由 ---------- */
+const app=$('#app');let cleanup=null;
+const segHTML=(id,opts,val)=>`<div class="seg" id="${id}">${opts.map(o=>`<button type="button" data-v="${esc(o)}" class="${o===val?'on':''}">${esc(o)}</button>`).join('')}</div>`;
+function segBind(id,cb){$$('#'+id+' button').forEach(b=>b.onclick=()=>{$$('#'+id+' button').forEach(x=>x.classList.toggle('on',x===b));cb(b.dataset.v)})}
+const statHTML=list=>list.map(([id,l])=>`<div class="stat"><b id="${id}">0</b><span>${l}</span></div>`).join('');
+
+/* 首頁 */
+function vHome(){
+ const rec=store.get(K.rec,[]);const bz=Math.max(0,...rec.filter(r=>r.type==='檢定'&&r.lang==='zh').map(r=>r.speed));const be=Math.max(0,...rec.filter(r=>r.type==='檢定'&&r.lang==='en').map(r=>r.speed));
+ const P=[['keys','先認識鍵盤','指法教室','認識基本鍵位，知道每根手指負責哪些鍵。'],['zhuyin','中文第一步','注音鍵位練習','不用輸入法，直接練注音符號在哪裡。'],['chinese','中文第二步','中打練習','開啟微軟注音，打出語詞和成語。'],['punct','檢定必備','標點符號教室','學會用快速鍵打出，。、：？！「」。'],['english','英文','英打練習','字母、單字、句子，一鍵一鍵練正確。'],['exam','挑戰自己','打字檢定','3、5、8、10 分鐘計時，算出速度與等級。']];
+ app.innerHTML=`<div class="hero"><div class="card"><h1>中英文打字練習</h1><p class="lead">國小 3–6 年級適用。先練指法，再練中英打，最後挑戰檢定。眼睛看螢幕，手指放在基本鍵上。</p>${kbHTML(true)}${legendHTML()}</div>
+ <div class="paths">${P.map(p=>`<button class="path" data-go="${p[0]}"><small>${p[1]}</small><h3>${p[2]}</h3><p>${p[3]}</p></button>`).join('')}</div>
+ <div class="card"><h3>我的最佳檢定成績（這台電腦）</h3><div class="stats" style="margin:0"><div class="stat"><b>${bz}</b><span>中打 字/分</span></div><div class="stat"><b>${be}</b><span>英打 WPM</span></div><div class="stat"><b>${rec.length}</b><span>練習與檢定次數</span></div></div></div></div>`;
+}
+
+/* 指法 */
+function vKeys(){
+ app.innerHTML=`<div class="card"><h2>指法教室</h2><p class="lead">打字前，先把手指放在「基本鍵」上：左手 <kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>F</kbd>，右手 <kbd>J</kbd><kbd>K</kbd><kbd>L</kbd><kbd>;</kbd>，兩個大拇指輕放在空白鍵。<kbd>F</kbd> 和 <kbd>J</kbd> 上面有小凸點，不用看鍵盤也摸得到。</p>
+ <div class="row" style="margin-bottom:12px">${segHTML('lab',['英文鍵位','注音鍵位'],'英文鍵位')}</div><div id="kbw">${kbHTML(false)}</div>${legendHTML()}
+ <div class="note">同一種顏色的鍵，由同一根手指負責。按完一個鍵，手指要回到基本鍵。鍵帽上方的小字（例如 / 鍵上的 ?），要按住<b>另一隻手</b>的 <kbd>Shift</kbd> 再按這個鍵才打得出來。按鍵盤上任何一個鍵，下面會告訴你應該用哪一根手指。</div><p class="hint" id="kh">試試看：按一個鍵。</p></div>
+ <div class="card"><h3>正確的打字姿勢</h3><ol class="steps"><li>坐正，雙腳平放在地上，眼睛和螢幕保持約一個手臂的距離。</li><li>手腕放輕鬆，不要壓在桌上，手指微微彎曲。</li><li>眼睛看螢幕上的文字，不要低頭看鍵盤。</li><li>先求正確，再求速度。每天練 10 分鐘，比一次練一小時更有效。</li></ol></div>`;
+ segBind('lab',v=>{$('#kbw').innerHTML=kbHTML(v==='注音鍵位')});
+ const h=e=>{if(e.target.matches('input,textarea'))return;const sp=SPECIAL[e.code];
+  if(sp){kbMark(app,[sp]);$('#kh').textContent=`${SPNAME[sp]} → 用 ${SPFIN[sp]===8?'大拇指':FN[SPFIN[sp]]}`;if(sp==='bs'||sp==='enter')e.preventDefault();return}
+  const k=codeKey(e.code);if(k===undefined||FINGER[k]===undefined&&k!==' ')return;e.preventDefault();kbMark(app,[k]);
+  const sh=SHIFTED[k]&&!/[a-z]/.test(k)?`；按住另一手的 Shift 再按，會打出「${SHIFTED[k]}」`:'';
+  $('#kh').textContent=`${keyName(k)}${ZY[k]?'（注音 '+ZY[k]+'）':''} → 用 ${fingerOf(k)}${sh}`};
+ document.addEventListener('keydown',h);cleanup=()=>document.removeEventListener('keydown',h);
+}
+
+/* 英打練習 */
+function vEnglish(){
+ let mode='字母',sub='基本列';
+ app.innerHTML=`<div class="card"><h2>英打練習</h2><p class="lead">請先切換成英文輸入（微軟注音按一下 <kbd>Shift</kbd>）。打錯時游標不會前進，要打對才能繼續。</p>
+ <div class="row" style="margin-bottom:10px">${segHTML('em',['字母','單字','句子'],mode)}<span id="esubw"></span><button class="btn pri" id="ego">開始新的一回</button></div>
+ <div class="stats">${statHTML([['s5','已打對字元'],['s6','換算單字數'],['s1','速度 WPM'],['s2','正確率 %'],['s3','錯誤'],['s4','進度 %']])}</div>
+ <p class="note" style="margin-top:0"><b>WPM 是什麼？</b> WPM（Words Per Minute）是「每分鐘打幾個英文字」。因為單字有長有短，為了公平，一律<b>每 5 個字元算 1 個字</b>（字母、空白、標點都算字元）。例如 1 分鐘打對 100 個字元 ＝ 20 個字 ＝ 20 WPM。</p>
+ <div class="stage" id="stage" tabindex="0"></div><p class="hint" id="hint"></p>${kbHTML(false)}${legendHTML()}</div>`;
+ const subs=()=>mode==='字母'?Object.keys(EN_LETTERS):mode==='單字'?Object.keys(EN_WORDS):null;
+ const drawSub=()=>{const s=subs();if(s&&!s.includes(sub))sub=s[0];$('#esubw').innerHTML=s?segHTML('es',s,sub):'';s&&segBind('es',v=>{sub=v;go()})};
+ const go=()=>{let text;
+  if(mode==='字母'){const set=EN_LETTERS[sub];text=Array.from({length:10},()=>Array.from({length:5},()=>set[Math.random()*set.length|0]).join('')).join(' ')}
+  else if(mode==='單字')text=pick(EN_WORDS[sub],12).join(' ');
+  else text=pick(ARTICLES.filter(a=>a.lang==='en').flatMap(a=>a.lines),3).join(' ');
+  runKeyDrill(text,`英打${mode}・${mode==='句子'?'句子':sub}`,go)};
+ segBind('em',v=>{mode=v;drawSub();go()});drawSub();$('#ego').onclick=go;go();
+}
+function runKeyDrill(text,label,again){
+ const st=$('#stage');let pos=0,err=0,t0=0,done=false;
+ st.classList.add('live');
+ st.innerHTML=`<div class="cover">點這裡開始打字</div><div class="tx">${[...text].map(c=>`<span>${esc(c)}</span>`).join('')}</div>`;
+ const sp=$$('.tx span',st);
+ const upd=()=>{sp.forEach((s,i)=>s.className=i<pos?'ok':i===pos?'cur':'');const sec=t0?(Date.now()-t0)/1000:0;
+  $('#s1').textContent=sec>1?Math.round(pos/5/sec*60):0;if($('#s5')){$('#s5').textContent=pos;$('#s6').textContent=(pos/5).toFixed(1)}$('#s2').textContent=pos+err?pct(pos,pos+err):100;$('#s3').textContent=err;$('#s4').textContent=pct(pos,text.length);
+  if(pos<text.length){const ks=keysFor(text[pos]);kbMark(app,ks);$('#hint').textContent=`下一個：${text[pos]===' '?'空白鍵':text[pos]} → 用 ${fingerOf(ks[0])}${ks[1]?'，另一手小指按 Shift':''}`}};
+ st.onkeydown=e=>{if(done||e.ctrlKey||e.metaKey||e.altKey)return;let k=e.key;
+  if(k==='Process'||k==='Unidentified'){k=codeKey(e.code);if(k&&e.shiftKey)k=SHIFTED[k]||k.toUpperCase()}
+  if(!k||k.length!==1)return;e.preventDefault();if(!t0)t0=Date.now();
+  if(k===text[pos]){pos++}else{err++;const c=sp[pos];c.classList.add('err');st.classList.remove('shake');void st.offsetWidth;st.classList.add('shake')}
+  upd();if(pos>=text.length)finish()};
+ const finish=()=>{done=true;const sec=(Date.now()-t0)/1000,wpm=Math.round(pos/5/sec*60),acc=pct(pos,pos+err);kbMark(app,[]);st.classList.remove('live');
+  addRecord({type:'練習',lang:'en',title:label,speed:wpm,unit:'WPM',acc,sec:Math.round(sec)});
+  st.innerHTML=`<div class="res"><div class="muted">完成！</div><div class="big">${wpm}<small style="font-size:22px"> WPM</small></div><p>打對 ${pos} 個字元 ＝ ${(pos/5).toFixed(1)} 個字（每 5 個字元算 1 個字）<br>正確率 ${acc}%　錯誤 ${err} 次　用時 ${fmtT(sec)}</p><button class="btn pri" id="agn">再練一回</button></div>`;
+  $('#hint').textContent='';$('#agn').onclick=again;$('#agn').focus()};
+ upd();st.focus();
+}
+
+/* 注音鍵位 */
+function vZhuyin(){
+ let mode='國字',grp='聲母';
+ app.innerHTML=`<div class="card"><h2>注音鍵位練習</h2><p class="lead">這裡<b>不用</b>打開中文輸入法，注意輸入法為「<b>英</b>」文輸入法，直接按鍵就好。看到國字，依序按出它的注音和聲調；一聲沒有符號，要按 <kbd>空白鍵</kbd>。</p>
+ <div class="row" style="margin-bottom:10px">${segHTML('zm',['國字','符號'],mode)}<span id="zsubw"></span><button class="btn pri" id="zgo">開始新的一回</button></div>
+ <div class="stats">${statHTML([['s1','速度'],['s2','正確率 %'],['s3','錯誤'],['s4','進度']])}</div>
+ <div class="stage" id="stage" tabindex="0"></div><p class="hint" id="hint"></p>${kbHTML(true)}${legendHTML()}</div>`;
+ const drawSub=()=>{$('#zsubw').innerHTML=mode==='符號'?segHTML('zg',Object.keys(ZY_GROUPS),grp):'';mode==='符號'&&segBind('zg',v=>{grp=v;go()})};
+ const go=()=>{const units=mode==='國字'?pick(ZY_CHARS,20).map(c=>{const z=ZYD[c],ks=[...z].map(s=>ZY_REV[s]);if(!/[ˇˋˊ˙]$/.test(z))ks.push(' ');return{show:c,keys:ks}})
+  :Array.from({length:30},()=>{const g=ZY_GROUPS[grp],s=g[Math.random()*g.length|0];return{show:s,keys:[ZY_REV[s]],sym:1}});
+  runZy(units,mode==='國字'?'注音鍵位・國字':'注音鍵位・'+grp,go)};
+ segBind('zm',v=>{mode=v;drawSub();go()});drawSub();$('#zgo').onclick=go;go();
+}
+function runZy(units,label,again){
+ const st=$('#stage');let ui=0,ki=0,ok=0,err=0,t0=0,done=false;const isSym=units[0].sym;
+ st.classList.add('live');
+ const draw=()=>{const u=units[ui];
+  st.innerHTML=`<div class="cover">點這裡開始打字</div><div class="zbig">${esc(u.show)}</div>${isSym?'':`<div class="zrow">${u.keys.map((k,i)=>`<span class="zs ${i<ki?'ok':i===ki?'cur':''}">${k===' '?'一聲<small>空白鍵</small>':ZY[k]}</span>`).join('')}</div>`}<div class="next">${units.slice(ui+1,ui+6).map(x=>esc(x.show)).join(' ')}</div>`;
+  const k=u.keys[ki];kbMark(app,[k]);$('#hint').textContent=`下一鍵：${k===' '?'空白鍵（一聲）':ZY[k]+'（'+keyName(k)+' 鍵）'} → 用 ${fingerOf(k)}`;
+  const sec=t0?(Date.now()-t0)/1000:0;$('#s1').textContent=(sec>1?Math.round((isSym?ok:ui)/sec*60):0)+(isSym?' 鍵/分':' 字/分');$('#s2').textContent=ok+err?pct(ok,ok+err):100;$('#s3').textContent=err;$('#s4').textContent=`${ui}/${units.length}`};
+ st.onkeydown=e=>{if(done||e.ctrlKey||e.metaKey||e.altKey)return;const k=codeKey(e.code);if(k===undefined)return;e.preventDefault();if(!t0)t0=Date.now();
+  if(k===units[ui].keys[ki]){ok++;ki++;if(ki>=units[ui].keys.length){ui++;ki=0}if(ui>=units.length)return finish();draw();st.focus()}
+  else{err++;st.classList.remove('shake');void st.offsetWidth;st.classList.add('shake');$('#s3').textContent=err}};
+ const finish=()=>{done=true;const sec=(Date.now()-t0)/1000,sp=Math.round((isSym?ok:units.length)/sec*60),acc=pct(ok,ok+err);kbMark(app,[]);st.classList.remove('live');
+  addRecord({type:'練習',lang:'zy',title:label,speed:sp,unit:isSym?'鍵/分':'字/分',acc,sec:Math.round(sec)});
+  st.innerHTML=`<div class="res"><div class="muted">完成！</div><div class="big">${sp}<small style="font-size:22px"> ${isSym?'鍵/分':'字/分'}</small></div><p>正確率 ${acc}%　錯誤 ${err} 次　用時 ${fmtT(sec)}</p><button class="btn pri" id="agn">再練一回</button></div>`;$('#hint').textContent='';$('#agn').onclick=again;$('#agn').focus()};
+ draw();st.focus();
+}
+
+/* 中打練習（使用輸入法） */
+function vChinese(){
+ let set='中年級語詞',mins=1,showZy=true;
+ app.innerHTML=`<div class="card"><h2>中打練習</h2><p class="lead">請切換到<b>微軟注音的中文模式</b>（右下角顯示「中」）。打出畫面上的語詞，<b>字底下的虛線消失</b>（按 <kbd>Enter</kbd> 確定）後，打對會自動換下一題；打錯可以再按一次 <kbd>Enter</kbd> 跳過。不熟悉選字的話，先看下方的「微軟注音選字小教室」。</p>
+ <div class="row" style="margin-bottom:10px">${segHTML('cs',Object.keys(WORDS),set)}${segHTML('ct',['1 分鐘','2 分鐘','3 分鐘'],'1 分鐘')}<label class="row muted"><input type="checkbox" id="czh" checked style="width:20px;height:20px"> 注音提示</label></div>
+ <div class="stats">${statHTML([['c1','剩餘時間'],['c2','速度 字/分'],['c3','答對'],['c4','跳過／打錯']])}</div>
+ <div class="stage" id="cst"><div class="word" id="cw"></div><div class="wzy" id="czy"></div><div class="row" style="justify-content:center;margin-top:12px"><input type="text" class="bigin" id="ci" autocomplete="off" spellcheck="false" placeholder="在這裡打字，開始計時" style="max-width:520px"></div>
+ <div class="row" style="justify-content:center;margin-top:12px"><button class="btn" id="cskip">跳過</button><button class="btn" id="crs">重新開始</button></div></div></div><div class="card"><h3>微軟注音選字小教室</h3><p class="muted">剛開始用微軟注音，最常卡在「選字」和「確定」。先看懂下面四件事，打字會順很多。</p>
+ <div class="tipgrid">
+ <div class="tip"><h3>看到虛線＝還沒確定</h3><div class="mock"><span class="dash">學校</span><span class="caret"></span></div><p>正在輸入的注音或國字，底下會有<b>虛線</b>，表示還可以改字。確認沒錯後，<b>按一次 <kbd>Enter</kbd></b>，虛線消失才算真的打上去。</p></div>
+ <div class="tip"><h3>選錯字怎麼辦？</h3><div class="mock"><span class="dash">學笑</span><span class="cand"><span class="sel"><b>1</b> 校</span><span><b>2</b> 笑</span><span><b>3</b> 孝</span><span><b>4</b> 效</span><span><b>5</b> 肖</span></span></div><p>例如想打「學校」，卻出現「學笑」。字還有虛線時，把游標移到那個字，按 <kbd>↓</kbd> 打開同音字清單，再用以下任一種方法選字：</p><ul class="steps"><li>按清單前面的<b>數字鍵</b>，直接選那個字（這裡按 <kbd>1</kbd> 就換成「校」）</li><li>用 <kbd>↑</kbd> <kbd>↓</kbd> 移動，再按 <kbd>Enter</kbd></li><li>用滑鼠直接點那個字</li></ul></div>
+ <div class="tip"><h3>沒有虛線＝不能再選字</h3><div class="mock"><span>學笑</span><span class="caret"></span></div><p>已經按過 Enter、底下<b>沒有虛線</b>的字或標點，就不能再用 ↓ 選字。打錯的話，要按 <kbd>Backspace</kbd> 把字刪掉，再重新輸入。</p></div>
+ <div class="tip"><h3>虛線中打錯：按 Esc 取消</h3><div class="mock"><span class="dash" style="text-decoration:line-through;opacity:.55">學笑</span><span class="caret"></span></div><p>如果打錯了，而且字底下還有虛線，可以按鍵盤<b>左上角的 <kbd>Esc</kbd></b>，取消這一組還沒確定的字或詞，再重新打一次。</p><p><b>注意：</b>按 Esc 會把<b>整段虛線裡的字全部清掉</b>。所以不要一次打太多字才按 Enter，打完一個詞或一小句就先確定，萬一誤按 Esc 也不會損失太多。</p></div>
+ </div>
+ <div class="note"><b>加速小訣竅：一次打一個詞</b><br>不要打一個字、選一個字。把整個詞的注音連續打完，例如依序打出 ㄒㄩㄝˊ ㄒㄧㄠˋ，輸入法會自動判斷成常用語詞「學校」，選字的次數變少，速度自然變快。打完一個詞或一小句，看一眼有沒有錯字，就按 <kbd>Enter</kbd> 確定。不要累積一大串虛線才按 Enter，以免誤按 <kbd>Esc</kbd> 時整串文字一起消失。</div></div>`;
+ let list,idx,t0,timer,good,bad,chars,done;const ci=$('#ci');
+ const show=()=>{const w=list[idx%list.length];$('#cw').textContent=w;$('#czy').textContent=showZy?wordZy(w):''};
+ const reset=()=>{clearInterval(timer);list=shuffle(WORDS[set]);idx=0;t0=0;good=0;bad=0;chars=0;done=false;ci.value='';ci.readOnly=false;$('#c1').textContent=fmtT(mins*60);['c2','c3','c4'].forEach(i=>$('#'+i).textContent=0);show();ci.focus()};
+ const tick=()=>{const sec=(Date.now()-t0)/1000,left=mins*60-sec;$('#c1').textContent=fmtT(Math.max(0,left));$('#c2').textContent=Math.round(chars/Math.max(sec,1)*60);if(left<=0)end()};
+ const start=()=>{if(!t0&&!done){t0=Date.now();timer=setInterval(tick,250)}};
+ const check=()=>{if(done)return;const v=ci.value.trim(),w=list[idx%list.length];if(v===w){good++;chars+=w.length;next(true)}};
+ const next=okk=>{idx++;ci.value='';$('#c3').textContent=good;$('#c4').textContent=bad;const s=$('#cst');s.classList.add(okk?'flash-ok':'flash-bad');setTimeout(()=>s.classList.remove('flash-ok','flash-bad'),250);show()};
+ const end=()=>{done=true;clearInterval(timer);ci.readOnly=true;const sp=Math.round(chars/(mins*60)*60),acc=pct(good,good+bad);
+  addRecord({type:'練習',lang:'zh',title:'中打・'+set,speed:sp,unit:'字/分',acc,sec:mins*60});
+  $('#cw').innerHTML=`<div class="res"><div class="big">${sp}<small style="font-size:22px"> 字/分</small></div></div>`;$('#czy').textContent=`答對 ${good} 個，共 ${chars} 字；跳過或打錯 ${bad} 個`};
+ ci.addEventListener('compositionstart',start);ci.addEventListener('compositionend',check);
+ ci.addEventListener('input',e=>{start();if(!e.isComposing)check()});
+ ci.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing&&e.keyCode!==229&&!done){e.preventDefault();start();if(ci.value.trim()){bad++;next(false)}}});
+ ci.addEventListener('paste',e=>e.preventDefault());
+ $('#cskip').onclick=()=>{if(done)return;start();bad++;next(false);ci.focus()};$('#crs').onclick=reset;
+ segBind('cs',v=>{set=v;reset()});segBind('ct',v=>{mins=parseInt(v);reset()});$('#czh').onchange=e=>{showZy=e.target.checked;show()};
+ reset();cleanup=()=>clearInterval(timer);
+}
+
+/* 標點符號 */
+function vPunct(){
+ app.innerHTML=`<div class="card"><h2>標點符號教室</h2><p class="lead">以 Windows 的<b>微軟注音</b>為例。所有快速鍵都要在<b>中文模式</b>（右下角顯示「中」）才有效；按一下 <kbd>Shift</kbd> 可以切換中／英文。</p>
+ <div class="scroll"><table><thead><tr><th>符號</th><th>名稱與用法</th><th>微軟注音按法</th><th>試試看</th></tr></thead><tbody>${PUNCT.map((p,i)=>`<tr><td class="sym">${p.s}</td><td><b>${p.n}</b><br><span class="muted">${p.use}</span></td><td>${p.how}</td><td class="try"><input type="text" class="tin" data-i="${i}" autocomplete="off" aria-label="練習輸入${p.n}"><span class="tres" id="tr${i}"></span></td></tr>`).join('')}</tbody></table></div>
+ <div class="note"><b>引號「」怎麼打？</b><ol class="steps"><li>按 <kbd>Ctrl</kbd> ＋ <kbd>[</kbd>，畫面會先出現一個括號。</li><li>按 <kbd>↓</kbd> 打開選單，用方向鍵選「，再按 <kbd>Enter</kbd>。</li><li>話打完後按 <kbd>Ctrl</kbd> ＋ <kbd>]</kbd>，電腦通常會自動配成」，按 <kbd>Enter</kbd> 確認。</li></ol></div>
+ <p class="muted">標點符號打出來時，底下如果有<b>虛線</b>，也要按 <kbd>Enter</kbd> 確定。打錯又沒有虛線時，請按 <kbd>Backspace</kbd> 刪掉重打。</p><p class="muted">其他方法：先按 <kbd>\`</kbd>（Esc 下方的鍵）再按標點鍵；或按 <kbd>Ctrl</kbd> ＋ <kbd>Alt</kbd> ＋ <kbd>,</kbd> 叫出符號小鍵盤。不同版本的 Windows 可能略有差異，以學校電腦實際操作為準。</p></div>
+ <div class="card"><h3>練習一：隨機標點挑戰</h3><p class="muted">上面每一列都可以先在「試試看」欄位練習。熟練後，在這裡看到符號就用快速鍵打出來，打對會自動換下一題。</p>
+ <div class="row" style="margin-bottom:10px">${segHTML('pm',['顯示按法','挑戰（不顯示）'],'顯示按法')}<button class="btn" id="prs">重新開始</button></div>
+ <div class="stats">${statHTML([['p1','答對'],['p2','打錯'],['p3','平均每題秒數']])}</div>
+ <div class="stage" id="pst"><div class="word" id="pw"></div><div class="wzy" id="ph"></div><div class="row" style="justify-content:center;margin-top:10px"><input type="text" class="bigin" id="pi" autocomplete="off" placeholder="在這裡打出符號" style="max-width:340px"></div></div>
+ ${kbHTML(false)}</div>
+ <div class="card"><h3>練習二：句子裡的標點</h3><p class="muted">把整個句子打出來，按 <kbd>Enter</kbd> 檢查，特別注意標點符號。</p>
+ <div class="tg" id="sq" style="font-size:26px"></div><input type="text" class="ip" id="si" autocomplete="off" placeholder="打完按 Enter 檢查" style="margin:8px 0"><p class="hint" id="sr"></p><button class="btn" id="snext">下一句</button></div>`;
+ const tcount={};$$('.tin').forEach(inp=>{const P=PUNCT[inp.dataset.i],out=$('#tr'+inp.dataset.i);
+  const chk=()=>{const v=inp.value.trim();if(!v)return;if(v.includes(P.s)){tcount[P.s]=(tcount[P.s]||0)+1;out.className='tres ok';out.textContent=`✓ 打對 ${tcount[P.s]} 次`;setTimeout(()=>inp.value='',350)}
+   else{out.className='tres bad';out.textContent='✗ 不是這個，再試一次';setTimeout(()=>inp.value='',600)}};
+  inp.addEventListener('input',e=>{if(!e.isComposing)chk()});inp.addEventListener('compositionend',chk);inp.addEventListener('focus',()=>kbMark(app,P.keys))});
+ let showHow=true,q,good,bad,t0,used;const pi=$('#pi');
+ const newQ=()=>{q=PUNCT[Math.random()*PUNCT.length|0];$('#pw').textContent=q.s;$('#ph').innerHTML=`${q.n}${showHow?'：'+q.how:''}`;kbMark(app,showHow?q.keys:[]);pi.value='';t0=Date.now()};
+ const reset=()=>{good=0;bad=0;used=0;['p1','p2','p3'].forEach(i=>$('#'+i).textContent=0);newQ()};
+ const check=()=>{const v=pi.value.trim();if(!v)return;const s=$('#pst');
+  if(v.includes(q.s)){good++;used+=(Date.now()-t0)/1000;s.classList.add('flash-ok');setTimeout(()=>s.classList.remove('flash-ok'),250);newQ()}
+  else{bad++;s.classList.add('flash-bad');setTimeout(()=>{s.classList.remove('flash-bad');pi.value=''},450);if(!showHow){$('#ph').innerHTML=`${q.n}：${q.how}`;kbMark(app,q.keys)}}
+  $('#p1').textContent=good;$('#p2').textContent=bad;$('#p3').textContent=good?(used/good).toFixed(1):0};
+ pi.addEventListener('input',e=>{if(!e.isComposing)check()});pi.addEventListener('compositionend',check);
+ segBind('pm',v=>{showHow=v==='顯示按法';newQ()});$('#prs').onclick=reset;reset();
+ let si=0,sl=shuffle(PSENT);const sq=$('#sq'),sin=$('#si');
+ const showS=()=>{sq.innerHTML=[...sl[si%sl.length]].map(c=>`<span>${esc(c)}</span>`).join('');sin.value='';$('#sr').textContent=''};
+ sin.addEventListener('keydown',e=>{if(e.key!=='Enter'||e.isComposing||e.keyCode===229)return;e.preventDefault();const t=[...sl[si%sl.length]],u=[...sin.value.replace(/\s/g,'')];const {hit,count}=lcs(t,u);
+  $$('span',sq).forEach((s,i)=>s.className=hit[i]?'ok':'bad');const isP=c=>PUNCT_ONE.test(c),pt=t.filter(isP),pok=t.filter((c,i)=>hit[i]&&isP(c));
+  $('#sr').textContent=count===t.length&&u.length===t.length?'全部正確！按「下一句」繼續。':`標點符號對了 ${pok.length}／${pt.length} 個，紅色是錯誤或漏打的地方。`});
+ sin.addEventListener('paste',e=>e.preventDefault());$('#snext').onclick=()=>{si++;showS();sin.focus()};showS();
+}
+
+/* LCS 比對 */
+function lcs(t,u){const n=t.length,m=u.length,d=Array.from({length:n+1},()=>new Uint16Array(m+1));
+ for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)d[i][j]=t[i]===u[j]?d[i+1][j+1]+1:Math.max(d[i+1][j],d[i][j+1]);
+ const hit=new Uint8Array(n);let i=0,j=0;while(i<n&&j<m){if(t[i]===u[j]){hit[i]=1;i++;j++}else if(d[i+1][j]>=d[i][j+1])i++;else j++}
+ return{hit,count:d[0][0]}}
+
+/* 檢定 */
+const ex={lang:'zh',grade:'中年級',id:'',ver:'含標點',mins:3};
+function vExam(){
+ const arts=allArticles().filter(a=>a.lang===ex.lang&&a.grade===ex.grade).sort((x,y)=>countChars(x,ex.ver)-countChars(y,ex.ver));if(!arts.find(a=>a.id===ex.id))ex.id=arts[0]?arts[0].id:'';
+ app.innerHTML=`<div class="card"><h2>打字檢定</h2><p class="lead">選好文章與時間後開始。開始打字才會計時；時間到或按「交卷」就結束。按 <kbd>Enter</kbd> 鍵，可跳下一行。</p>
+ <div class="row" style="gap:16px;align-items:flex-end;margin-bottom:12px">
+  <label class="f">語言${segHTML('xl',['中文','英文'],ex.lang==='zh'?'中文':'英文')}</label>
+  <label class="f">年段${segHTML('xg',['中年級','高年級'],ex.grade)}</label>
+  ${ex.lang==='zh'?`<label class="f">版本${segHTML('xv',['含標點','空格版'],ex.ver)}</label>`:''}
+  <label class="f">時間${segHTML('xt',['3','5','8','10'],String(ex.mins))}</label>
+  <label class="f">文章<select id="xa">${arts.map(a=>`<option value="${esc(a.id)}" ${a.id===ex.id?'selected':''}>${esc(a.title)}（${countChars(a,ex.ver)} ${a.lang==='zh'?'字':'字元'}）</option>`).join('')}</select></label>
+  <button class="btn pri" id="xgo">開始檢定</button></div>
+  <p class="muted">計分：速度 ＝ 正確${ex.lang==='zh'?'字數':'字元數 ÷ 5'} ÷ 已用時間（分）。${ex.lang==='zh'?'空格版把標點換成空白，空白可打可不打，也不算字數。':'英文空白也算字元。'}正確率需達 80% 才評等級。</p></div>
+ <div class="card"><h3>等級標準</h3><div class="scroll"><table class="lvtab"><thead><tr><th></th>${ZH_LV.slice().reverse().map(l=>`<th>${l[1]}</th>`).join('')}</tr></thead><tbody>
+ <tr><td>中打 字/分</td>${ZH_LV.slice().reverse().map((l,i,a)=>`<td>${l[0]}${a[i+1]?'–'+(a[i+1][0]-1):'＋'}</td>`).join('')}</tr>
+ <tr><td>英打 WPM</td>${EN_LV.slice().reverse().map((l,i,a)=>`<td>${l[0]}${a[i+1]?'–'+(a[i+1][0]-1):'＋'}</td>`).join('')}</tr></tbody></table></div></div>`;
+ segBind('xl',v=>{ex.lang=v==='中文'?'zh':'en';vExam()});segBind('xg',v=>{ex.grade=v;vExam()});ex.lang==='zh'&&segBind('xv',v=>{ex.ver=v;vExam()});
+ segBind('xt',v=>ex.mins=+v);$('#xa').onchange=e=>ex.id=e.target.value;
+ $('#xgo').onclick=()=>{const a=allArticles().find(x=>x.id===ex.id);if(a)runExam(a)};
+}
+const lineText=(l,lang,ver)=>lang==='zh'&&ver==='空格版'?l.replace(PUNCT_RE,' ').replace(/ +/g,' ').trim():l;
+function countChars(a,ver){return a.lines.reduce((n,l)=>n+(a.lang==='zh'?lineText(l,'zh',ver).replace(/\s/g,'').length:l.length),0)}
+function runExam(a){
+ const zh=a.lang==='zh',ver=zh?ex.ver:'',limit=ex.mins*60;let t0=0,timer,done=false;
+ const L=a.lines.map(l=>{const d=lineText(l,a.lang,ver);return{d,t:zh?[...d.replace(/\s/g,'')]:[...d]}});
+ app.innerHTML=`<div class="card"><div class="row" style="justify-content:space-between"><div><h2 style="margin:0">${esc(a.title)}</h2><span class="muted">${zh?'中打':'英打'}・${esc(a.grade)}${zh?'・'+ver:''}・${ex.mins} 分鐘・共 ${countChars(a,ver)} ${zh?'字':'字元'}</span></div><div class="timer" id="xt">${fmtT(limit)}</div></div>
+ <div class="stats" style="margin-top:12px">${statHTML([['x1','正確'],['x2','錯誤'],['x3','未打'],['x4',zh?'速度 字/分':'速度 WPM']])}</div>
+ <p class="note" style="margin:0 0 14px">打完一行後，按 <kbd>Enter</kbd> 鍵，可跳下一行。藍色底線是目前要打的字。<br>提醒：字底下還有<b>虛線</b>時，第一次按 <kbd>Enter</kbd> 是「確定選字」，虛線消失後再按一次 <kbd>Enter</kbd> 才會跳到下一行。</p><div id="xres"></div>
+ <div id="lines">${L.map((l,i)=>`<div class="ln"><div class="tg ${zh?'':'en'}" id="tg${i}">${[...l.d].map(c=>c===' '&&zh?'<span class="gap"> </span>':`<span class="c">${esc(c)}</span>`).join('')}</div><input type="text" class="ip ${zh?'':'en'}" id="ip${i}" data-i="${i}" autocomplete="off" autocapitalize="off" spellcheck="false"></div>`).join('')}</div>
+ <div class="row"><button class="btn pri" id="xsub">交卷</button><button class="btn" id="xquit">放棄，回到選單</button></div></div>`;
+ L.forEach((l,i)=>{l.sp=$$('#tg'+i+' .c');l.ip=$('#ip'+i)});
+ const evalAll=()=>{let ok=0,wr=0,miss=0;L.forEach(l=>{let u=[...l.ip.value];if(zh)u=u.filter(c=>!/\s/.test(c));const {hit,count}=lcs(l.t,u);
+  l.sp.forEach((s,i)=>s.className='c '+(hit[i]?'ok':i<u.length?'bad':i===u.length&&document.activeElement===l.ip?'cur':''));
+  ok+=count;wr+=u.length-count;miss+=Math.max(0,l.t.length-u.length);l.full=u.length>=l.t.length});
+  const sec=t0?Math.max(1,(Date.now()-t0)/1000):1;const sp=Math.floor((zh?ok:ok/5)/sec*60);
+  $('#x1').textContent=ok;$('#x2').textContent=wr;$('#x3').textContent=miss;$('#x4').textContent=t0?sp:0;return{ok,wr,miss,sp,sec}};
+ const start=()=>{if(t0||done)return;t0=Date.now();timer=setInterval(()=>{const left=limit-(Date.now()-t0)/1000;$('#xt').textContent=fmtT(Math.max(0,left));if(left<=0)finish('時間到')},250)};
+ const finish=why=>{if(done)return;done=true;clearInterval(timer);L.forEach(l=>l.ip.readOnly=true);
+  const r=evalAll();const sec=t0?Math.min(limit,(Date.now()-t0)/1000):0;const sp=sec?Math.floor((zh?r.ok:r.ok/5)/Math.max(sec,1)*60):0;const acc=pct(r.ok,r.ok+r.wr);const lv=level(a.lang,sp,acc);
+  if(t0)addRecord({type:'檢定',lang:a.lang,title:a.title+(zh?'（'+ver+'）':''),speed:sp,unit:zh?'字/分':'WPM',acc,sec:Math.round(sec),level:lv,min:ex.mins});
+  $('#xres').innerHTML=`<div class="card res" style="background:var(--soft)"><div class="muted">${why}</div><div class="big">${sp}<small style="font-size:22px"> ${zh?'字/分':'WPM'}</small></div><div class="lv">${lv}</div>
+  <p>正確 ${r.ok}　錯誤 ${r.wr}　未打 ${r.miss}　正確率 ${acc}%　用時 ${fmtT(sec)}${acc<80?'<br>正確率未達 80%，這次不評等級。':''}</p><div class="row" style="justify-content:center"><button class="btn pri" id="xagain">再測一次</button><button class="btn" id="xback">換文章</button></div></div>`;
+  $('#xagain').onclick=()=>runExam(a);$('#xback').onclick=vExam;$('#xres').scrollIntoView({behavior:'smooth',block:'center'})};
+ L.forEach((l,i)=>{const ip=l.ip;
+  ip.addEventListener('compositionstart',start);
+  ip.addEventListener('input',e=>{start();if(!e.isComposing){const r=evalAll();if(L.every(x=>x.full))finish('全部打完了')}});
+  ip.addEventListener('compositionend',()=>{evalAll();if(L.every(x=>x.full))finish('全部打完了')});
+  ip.addEventListener('focus',evalAll);
+  ip.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();const n=L[i+1];n?n.ip.focus():$('#xsub').focus()}});
+  ['paste','drop'].forEach(ev=>ip.addEventListener(ev,e=>e.preventDefault()))});
+ $('#xsub').onclick=()=>t0?finish('已交卷'):L[0].ip.focus();
+ $('#xquit').onclick=()=>t0&&!done?confirmBox('確定要放棄這次檢定嗎？成績不會保存。',()=>{done=true;clearInterval(timer);vExam()}):(clearInterval(timer),vExam());
+ L[0].ip.focus();evalAll();cleanup=()=>clearInterval(timer);
+}
+
+/* 成績 */
+function vRecords(){
+ let f='全部';
+ const draw=()=>{const all=store.get(K.rec,[]),rec=all.filter(r=>f==='全部'||r.type===f);
+  const best=(lang)=>Math.max(0,...all.filter(r=>r.type==='檢定'&&r.lang===lang).map(r=>r.speed));
+  app.innerHTML=`<div class="card"><h2>成績紀錄</h2><p class="lead">紀錄只存在這台電腦的瀏覽器中。換電腦或清除瀏覽資料後就會消失，需要保存請按「複製成績資料」。</p>
+  <div class="stats"><div class="stat"><b>${best('zh')}</b><span>中打最佳 字/分</span></div><div class="stat"><b>${level('zh',best('zh'),100)}</b><span>中打最高等級</span></div><div class="stat"><b>${best('en')}</b><span>英打最佳 WPM</span></div><div class="stat"><b>${all.length}</b><span>總次數</span></div></div>
+  <div class="row" style="margin-bottom:12px">${segHTML('rf',['全部','檢定','練習'],f)}<button class="btn sm" id="rcp">複製成績資料</button><button class="btn sm" id="rclr">清除全部紀錄</button><span class="muted" id="rmsg"></span></div>
+  ${rec.length?`<div class="scroll"><table><thead><tr><th>時間</th><th>座號／暱稱</th><th>類型</th><th>項目</th><th class="num">速度</th><th class="num">正確率</th><th>等級</th></tr></thead><tbody>${rec.map(r=>`<tr><td class="num" style="text-align:left">${new Date(r.at).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</td><td>${esc(r.who||'—')}</td><td><span class="badge">${r.type}${r.min?' '+r.min+'分':''}</span></td><td>${esc(r.title)}</td><td class="num">${r.speed} ${r.unit}</td><td class="num">${r.acc}%</td><td>${r.level||'—'}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">還沒有紀錄。去練習或挑戰一次檢定吧！</p>'}</div>`;
+  segBind('rf',v=>{f=v;draw()});
+  $('#rcp').onclick=()=>{navigator.clipboard.writeText(JSON.stringify(all)).then(()=>$('#rmsg').textContent='已複製，可以貼到記事本保存。',()=>$('#rmsg').textContent='無法複製，請改用其他瀏覽器。')};
+  $('#rclr').onclick=()=>confirmBox('確定要清除這台電腦上的全部成績紀錄嗎？清除後無法復原。',()=>{store.set(K.rec,[]);draw()})};
+ draw();
+}
+
+/* 教師 */
+function vTeacher(){
+ const draw=()=>{const cus=store.get(K.art,[]);
+  app.innerHTML=`<div class="card"><h2>教師：自訂檢定文章</h2><p class="lead">新增的文章會出現在「檢定」的文章清單。資料存在這台電腦的瀏覽器；要放到其他電腦，請用下方的匯出／匯入。</p>
+  <div class="row" style="gap:12px;margin-bottom:10px"><label class="f">標題<input type="text" id="ta" maxlength="30" placeholder="例如：我的志願"></label>
+  <label class="f">語言<select id="tl"><option value="zh">中文</option><option value="en">英文</option></select></label>
+  <label class="f">年段<select id="tgd"><option>中年級</option><option>高年級</option></select></label></div>
+  <label class="f">內文（每一行就是檢定時的一行，建議每行 15–30 字）<textarea id="tt" placeholder="第一行……&#10;第二行……"></textarea></label>
+  <div class="row" style="margin-top:10px"><button class="btn pri" id="tadd">新增文章</button><span class="muted" id="tmsg"></span></div></div>
+  <div class="card"><h3>已新增的文章（${cus.length} 篇）</h3>${cus.length?`<table><tbody>${cus.map((a,i)=>`<tr><td><b>${esc(a.title)}</b><br><span class="muted">${a.lang==='zh'?'中文':'英文'}・${esc(a.grade)}・${countChars(a,'含標點')} ${a.lang==='zh'?'字':'字元'}</span></td><td style="text-align:right"><button class="btn sm" data-del="${i}">刪除</button></td></tr>`).join('')}</tbody></table>`:'<p class="muted">目前沒有自訂文章。</p>'}</div>
+  <div class="card"><h3>匯出／匯入</h3><p class="muted">按「匯出」會把自訂文章放進下方文字框並複製；在另一台電腦貼上後按「匯入」。</p><textarea id="tio" placeholder="[ ... ]"></textarea><div class="row" style="margin-top:10px"><button class="btn" id="texp">匯出</button><button class="btn" id="timp">匯入</button><span class="muted" id="iomsg"></span></div></div>`;
+  $('#tadd').onclick=()=>{const title=$('#ta').value.trim(),lines=$('#tt').value.split('\n').map(s=>s.trim()).filter(Boolean);if(!title||!lines.length){$('#tmsg').textContent='請填寫標題和內文。';return}
+   cus.push({id:'c'+Date.now(),lang:$('#tl').value,grade:$('#tgd').value,title,lines});store.set(K.art,cus);draw();$('#tmsg').textContent='已新增「'+title+'」。'};
+  $$('[data-del]').forEach(b=>b.onclick=()=>confirmBox('確定刪除「'+cus[b.dataset.del].title+'」？',()=>{cus.splice(+b.dataset.del,1);store.set(K.art,cus);draw()}));
+  $('#texp').onclick=()=>{const s=JSON.stringify(cus,null,1);$('#tio').value=s;navigator.clipboard.writeText(s).then(()=>$('#iomsg').textContent='已複製。',()=>$('#iomsg').textContent='請手動複製文字框內容。')};
+  $('#timp').onclick=()=>{try{const arr=JSON.parse($('#tio').value);if(!Array.isArray(arr))throw 0;const ok=arr.filter(a=>a&&a.title&&Array.isArray(a.lines)&&(a.lang==='zh'||a.lang==='en')).map(a=>({id:'c'+Date.now()+Math.random().toString(36).slice(2,6),lang:a.lang,grade:a.grade==='高年級'?'高年級':'中年級',title:String(a.title),lines:a.lines.map(String)}));store.set(K.art,cus.concat(ok));draw();$('#iomsg').textContent=`匯入 ${ok.length} 篇。`}catch(e){$('#iomsg').textContent='格式不正確，請確認貼上的是匯出的內容。'}}};
+ draw();
+}
+
+const ROUTES={home:vHome,keys:vKeys,english:vEnglish,zhuyin:vZhuyin,chinese:vChinese,punct:vPunct,exam:vExam,records:vRecords,teacher:vTeacher};
+function route(){const r=(location.hash||'#home').slice(1);const fn=ROUTES[r]||vHome;if(cleanup){cleanup();cleanup=null}closeModal();
+ $$('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.r===(ROUTES[r]?r:'home')));fn();window.scrollTo(0,0)}
+document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g){if(location.hash.slice(1)===g.dataset.go)route();else location.hash=g.dataset.go}});
+window.addEventListener('hashchange',route);
+setWho();route();
+}
+</script>
+</body>
+</html>
