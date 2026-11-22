@@ -591,6 +591,9 @@ function vRecords(){
 
 
 
+const TTABS=['班級與認證','自訂文章','一般排行榜管理'];
+const ttab=()=>{let v=null;try{v=sessionStorage.getItem('typing.ttab')}catch(e){}return TTABS.includes(v)?v:TTABS[0]};
+const tex={rows:[],page:0,q:''};
 async function tApi(url,method,body){const r=await fetch(url,{method:method||'GET',headers:{'content-type':'application/json',authorization:'Bearer '+ss.get(TK)},body:body?JSON.stringify(body):undefined,cache:'no-store'});return r.json()}
 async function loadClasses(){const box=$('#tcls');if(!box)return;
  try{const d=await tApi('/api/teacher/classes');if(!d.ok){box.innerHTML=`<p class="muted">${esc(d.error)}</p>`;return}
@@ -639,7 +642,7 @@ async function showResults(cid,name){const box=$('#cdetail');box.innerHTML='<div
   box.innerHTML=`<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">${esc(name)}：認證成績</h3><div class="row"><button class="btn sm" id="rcopy">複製成績表</button><button class="btn sm" id="rclose">收起</button></div></div>
   <p class="muted">每人列出最好的一次（正確率需達 80%）。下方是全部認證紀錄。</p><div class="row" style="margin:10px 0">${segHTML('rtp',types,cur)}<span class="muted" id="rmsg2"></span></div>
   ${list.length?`<div class="scroll"><table><thead><tr><th class="num">名次</th><th class="num">座號</th><th>暱稱</th><th class="num">最佳速度</th><th class="num">正確率</th><th>等級</th><th class="num">次數</th><th>文章</th><th class="num">時間</th></tr></thead><tbody>${list.map((x,i)=>`<tr><td class="num">${i+1}</td><td class="num">${x.seat_no}</td><td>${esc(x.nickname||'')}</td><td class="num"><b>${x.speed}</b> ${unit}</td><td class="num">${x.accuracy}%</td><td>${esc(x.level)}</td><td class="num">${x.attempts}</td><td>${esc(x.article_title)}</td><td class="num">${x.time_limit} 分</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">這個類型還沒有人完成認證。</p>'}
-  <h3 style="margin-top:20px">全部認證紀錄（最近 300 筆）</h3>${d.records.length?`<div class="scroll"><table><thead><tr><th>時間</th><th class="num">座號</th><th>類型</th><th class="num">速度</th><th class="num">正確率</th><th>等級</th><th>文章</th><th></th></tr></thead><tbody>${d.records.map(x=>`<tr><td>${esc(String(x.created_at).slice(5,16))}</td><td class="num">${x.seat_no}</td><td>${x.lang==='zh'?'中打・'+esc(x.version):'英打'}・${x.time_limit}分</td><td class="num">${x.speed}</td><td class="num">${x.accuracy}%</td><td>${esc(x.level)}</td><td>${esc(x.article_title)}</td><td><button class="btn sm" data-rdel="${x.id}">刪除</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">還沒有認證紀錄。</p>'}</div>`;
+  <details style="margin-top:20px"><summary style="cursor:pointer;font-weight:700;font-size:17px">全部認證紀錄（${d.records.length} 筆，點開查看）</summary>${d.records.length?`<div class="scroll"><table><thead><tr><th>時間</th><th class="num">座號</th><th>類型</th><th class="num">速度</th><th class="num">正確率</th><th>等級</th><th>文章</th><th></th></tr></thead><tbody>${d.records.map(x=>`<tr><td>${esc(String(x.created_at).slice(5,16))}</td><td class="num">${x.seat_no}</td><td>${x.lang==='zh'?'中打・'+esc(x.version):'英打'}・${x.time_limit}分</td><td class="num">${x.speed}</td><td class="num">${x.accuracy}%</td><td>${esc(x.level)}</td><td>${esc(x.article_title)}</td><td><button class="btn sm" data-rdel="${x.id}">刪除</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">還沒有認證紀錄。</p>'}</details></div>`;
   segBind('rtp',v=>{cur=v;draw()});$('#rclose').onclick=()=>box.innerHTML='';
   $('#rcopy').onclick=()=>{const t=['座號\t暱稱\t最佳速度\t正確率\t等級\t次數'].concat(list.slice().sort((a,b)=>a.seat_no-b.seat_no).map(x=>[x.seat_no,x.nickname,x.speed,x.accuracy+'%',x.level,x.attempts].join('\t'))).join('\n');
    navigator.clipboard.writeText(t).then(()=>$('#rmsg2').textContent=`已複製「${cur}」成績表，可直接貼到試算表。`,()=>$('#rmsg2').textContent='無法複製')};
@@ -647,29 +650,41 @@ async function showResults(cid,name){const box=$('#cdetail');box.innerHTML='<div
  draw();box.scrollIntoView({behavior:'smooth'});
 }
 
-async function loadTExams(){const box=$('#tex');if(!box)return;const t=ss.get(TK);
- try{const d=await fetch('/api/teacher/exams',{headers:{authorization:'Bearer '+t},cache:'no-store'}).then(r=>r.json());if(!d.ok){box.innerHTML=`<p class="muted">${esc(d.error||'無法讀取')}</p>`;return}
-  box.innerHTML=d.results.length?`<div class="scroll"><table><thead><tr><th>時間</th><th>暱稱</th><th>類型</th><th class="num">速度</th><th class="num">正確率</th><th>文章</th><th></th></tr></thead><tbody>${d.results.map(x=>`<tr><td>${esc(String(x.created_at).slice(5,16))}</td><td>${esc(x.nickname)}</td><td>${x.lang==='zh'?'中打・'+esc(x.version):'英打'}・${x.time_limit}分</td><td class="num">${x.speed}</td><td class="num">${x.accuracy}%</td><td>${esc(x.article_title)}</td><td><button class="btn sm" data-xdel="${x.id}">刪除</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">目前還沒有檢定成績。</p>';
-  $$('[data-xdel]',box).forEach(bt=>bt.onclick=()=>confirmBox('確定刪除這筆成績？刪除後無法復原。',async()=>{await fetch('/api/teacher/exams/'+bt.dataset.xdel,{method:'DELETE',headers:{authorization:'Bearer '+t}});loadTExams()}));
- }catch(e){box.innerHTML='<p class="muted">無法連線到資料庫。</p>'}}
+async function loadTExams(){const box=$('#tex');if(!box)return;
+ try{const d=await tApi('/api/teacher/exams');if(!d.ok){box.innerHTML=`<p class="muted">${esc(d.error||'無法讀取')}</p>`;return}tex.rows=d.results;renderTExams()}
+ catch(e){box.innerHTML='<p class="muted">無法連線到資料庫。</p>'}}
+function renderTExams(){const box=$('#tex');if(!box)return;const PER=20;
+ const rows=tex.rows.filter(x=>!tex.q||String(x.nickname).includes(tex.q)||String(x.article_title).includes(tex.q));
+ const pages=Math.max(1,Math.ceil(rows.length/PER));tex.page=Math.min(tex.page,pages-1);const cur=rows.slice(tex.page*PER,tex.page*PER+PER);
+ box.innerHTML=rows.length?`<div class="scroll"><table><thead><tr><th>時間</th><th>暱稱</th><th>類型</th><th class="num">速度</th><th class="num">正確率</th><th>文章</th><th></th></tr></thead><tbody>${cur.map(x=>`<tr><td>${esc(String(x.created_at).slice(5,16))}</td><td>${esc(x.nickname)}</td><td>${x.lang==='zh'?'中打・'+esc(x.version):'英打'}・${x.time_limit}分</td><td class="num">${x.speed}</td><td class="num">${x.accuracy}%</td><td>${esc(x.article_title)}</td><td><button class="btn sm" data-xdel="${x.id}">刪除</button></td></tr>`).join('')}</tbody></table></div>
+  <div class="row" style="justify-content:center;margin-top:10px"><button class="btn sm" id="tpprev" ${tex.page?'':'disabled'}>上一頁</button><span class="muted">第 ${tex.page+1} / ${pages} 頁（共 ${rows.length} 筆）</span><button class="btn sm" id="tpnext" ${tex.page<pages-1?'':'disabled'}>下一頁</button></div>`:`<p class="muted">${tex.q?'找不到符合的成績。':'目前還沒有檢定成績。'}</p>`;
+ if(rows.length){$('#tpprev').onclick=()=>{tex.page--;renderTExams()};$('#tpnext').onclick=()=>{tex.page++;renderTExams()}}
+ $$('[data-xdel]',box).forEach(bt=>bt.onclick=()=>confirmBox('確定刪除這筆成績？刪除後無法復原。',async()=>{await fetch('/api/teacher/exams/'+bt.dataset.xdel,{method:'DELETE',headers:{authorization:'Bearer '+ss.get(TK)}});loadTExams()}));
+}
 
 /* 教師 */
 function vTeacher(){
  const draw=()=>{const cus=store.get(K.art,[]);
-  app.innerHTML=`<div class="row" style="justify-content:space-between;margin-bottom:12px"><span class="badge">已登入教師模式</span><button class="btn sm" id="tout">登出</button></div><div class="card"><h2>班級與認證管理</h2><p class="lead">建立班級後，系統會依規則產生每個座號的代碼，例如前綴 501＋座號 → 5 年 1 班 1 號是 50101、23 號是 50123；也可以選隨機產生，或之後逐一自訂（6 碼以內英數字）。<b>認證平常是關閉的</b>，要讓哪一班認證時，再勾選那一班的「開放認證」；學生按右上角「認證模式」，選班級、座號、輸入代碼即可進入。</p>
+  app.innerHTML=`<div class="row" style="justify-content:space-between;margin-bottom:12px"><span class="badge">已登入教師模式</span><button class="btn sm" id="tout">登出</button></div>
+  <div class="row" style="margin-bottom:16px">${segHTML('ttab',TTABS,ttab())}</div>
+  <section data-tab="班級與認證"><div class="card"><h2>班級與認證管理</h2><p class="lead">建立班級後，系統會依規則產生每個座號的代碼，例如前綴 501＋座號 → 5 年 1 班 1 號是 50101、23 號是 50123；也可以選隨機產生，或之後逐一自訂（6 碼以內英數字）。<b>認證平常是關閉的</b>，要讓哪一班認證時，再勾選那一班的「開放認證」；學生按右上角「認證模式」，選班級、座號、輸入代碼即可進入。</p>
   <div class="row" style="gap:12px;align-items:flex-end"><label class="f">班級名稱<input type="text" id="cn" maxlength="20" placeholder="例如：五年四班"></label><label class="f">人數<input type="text" id="cnum" inputmode="numeric" maxlength="2" placeholder="29" style="width:90px"></label><label class="f">代碼方式<select id="cplen"><option value="rule">前綴＋座號</option><option value="4">隨機 4 位數</option><option value="5">隨機 5 位數</option><option value="6">隨機 6 位數</option></select></label>
   <label class="f" id="cpref-w">前綴<input type="text" id="cpref" maxlength="4" placeholder="例如 501" style="width:110px"></label>
   <label class="f" id="cdig-w">座號位數<select id="cdig"><option value="2">2 位（01）</option><option value="1">1 位（1）</option><option value="3">3 位（001）</option></select></label><button class="btn pri" id="cadd">建立班級</button><span class="muted" id="cmsg"></span></div>
-  <div id="tcls" style="margin-top:16px"><p class="muted">載入中…</p></div></div><div id="cdetail"></div>
-  <div class="card"><h2>教師：自訂檢定文章</h2><p class="lead">新增的文章會出現在「檢定」的文章清單。資料存在這台電腦的瀏覽器；要放到其他電腦，請用下方的匯出／匯入。</p>
+  <div id="tcls" style="margin-top:16px"><p class="muted">載入中…</p></div></div><div id="cdetail"></div></section>
+  <section data-tab="自訂文章"><div class="card"><h2>教師：自訂檢定文章</h2><p class="lead">新增的文章會出現在「檢定」的文章清單。資料存在這台電腦的瀏覽器；要放到其他電腦，請用下方的匯出／匯入。</p>
   <div class="row" style="gap:12px;margin-bottom:10px"><label class="f">標題<input type="text" id="ta" maxlength="30" placeholder="例如：我的志願"></label>
   <label class="f">語言<select id="tl"><option value="zh">中文</option><option value="en">英文</option></select></label>
   <label class="f">年段<select id="tgd"><option>中年級</option><option>高年級</option></select></label></div>
   <label class="f">內文（每一行就是檢定時的一行，建議每行 15–30 字）<textarea id="tt" placeholder="第一行……&#10;第二行……"></textarea></label>
   <div class="row" style="margin-top:10px"><button class="btn pri" id="tadd">新增文章</button><span class="muted" id="tmsg"></span></div></div>
   <div class="card"><h3>已新增的文章（${cus.length} 篇）</h3>${cus.length?`<table><tbody>${cus.map((a,i)=>`<tr><td><b>${esc(a.title)}</b><br><span class="muted">${a.lang==='zh'?'中文':'英文'}・${esc(a.grade)}・${countChars(a,'含標點')} ${a.lang==='zh'?'字':'字元'}</span></td><td style="text-align:right"><button class="btn sm" data-del="${i}">刪除</button></td></tr>`).join('')}</tbody></table>`:'<p class="muted">目前沒有自訂文章。</p>'}</div>
-  <div class="card"><h3>一般排行榜管理（最近 200 筆，不含認證成績）</h3><p class="muted">發現不當暱稱或異常成績時，可以在這裡刪除。</p><div id="tex"><p class="muted">載入中…</p></div></div>
-  <div class="card"><h3>匯出／匯入</h3><p class="muted">按「匯出」會把自訂文章放進下方文字框並複製；在另一台電腦貼上後按「匯入」。</p><textarea id="tio" placeholder="[ ... ]"></textarea><div class="row" style="margin-top:10px"><button class="btn" id="texp">匯出</button><button class="btn" id="timp">匯入</button><span class="muted" id="iomsg"></span></div></div>`;
+  <div class="card"><h3>匯出／匯入</h3><p class="muted">按「匯出」會把自訂文章放進下方文字框並複製；在另一台電腦貼上後按「匯入」。</p><textarea id="tio" placeholder="[ ... ]"></textarea><div class="row" style="margin-top:10px"><button class="btn" id="texp">匯出</button><button class="btn" id="timp">匯入</button><span class="muted" id="iomsg"></span></div></div></section>
+  <section data-tab="一般排行榜管理"><div class="card"><h3>一般排行榜管理（最近 200 筆，不含認證成績）</h3><p class="muted">發現不當暱稱或異常成績時，可以在這裡刪除。</p>
+  <div class="row" style="margin-bottom:10px"><input type="text" id="texq" placeholder="搜尋暱稱或文章" style="width:220px"></div><div id="tex"><p class="muted">載入中…</p></div></div></section>`;
+  const showTab=v=>{try{sessionStorage.setItem('typing.ttab',v)}catch(e){}$$('section[data-tab]').forEach(x=>x.hidden=x.dataset.tab!==v)};
+  segBind('ttab',showTab);showTab(ttab());
+  $('#texq').oninput=()=>{tex.page=0;tex.q=$('#texq').value.trim();renderTExams()};
   $('#tout').onclick=()=>{ss.del(TK);location.href='/'};
   loadTExams();loadClasses();
   const cpv=()=>{const r=$('#cplen').value==='rule';$('#cpref-w').style.display=$('#cdig-w').style.display=r?'':'none';if(r&&$('#cpref').value)$('#cmsg').textContent=`範例：1 號 → ${($('#cpref').value.trim()+'1'.padStart(+$('#cdig').value,'0')).toUpperCase()}`};
