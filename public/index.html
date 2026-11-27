@@ -138,7 +138,9 @@ body.cert-on .certbar{display:block}
 a.btn{display:inline-flex;align-items:center;text-decoration:none;color:var(--ink)}
 .vtg{position:relative;max-height:300px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:12px 16px;font-size:20px;line-height:1.9;letter-spacing:.04em;background:var(--soft);margin-bottom:10px}
 .vtg .ok{color:var(--ok)}.vtg .bad{color:var(--bad)}.vtg .cur{box-shadow:inset 0 -3px var(--cur)}.vtg .vp{color:var(--mute);opacity:.5}
-.vin{width:100%;min-height:200px;font-size:20px;line-height:1.8}
+.vgrp{margin-bottom:14px}.vtg2{font-size:20px;line-height:1.8;letter-spacing:.04em;padding:2px 13px}
+.vtg2 .ok{color:var(--ok)}.vtg2 .bad{color:var(--bad);background:light-dark(#fde2dc,#4a1f17)}.vtg2 .cur{box-shadow:inset 0 -3px var(--cur)}.vtg2 .vp{color:var(--mute);opacity:.5}
+.vin2{width:100%;min-height:0;font-size:20px!important;line-height:1.7;letter-spacing:.04em;padding:8px 12px!important;resize:vertical}
 .pins{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .pinc{border:1px dashed var(--ink);border-radius:8px;padding:10px;text-align:center}.pinc b{display:block;font-size:26px;letter-spacing:.15em}
 #printarea{display:none}
@@ -620,45 +622,57 @@ const vv={id:'v1',ver:'含標點'};
 const toFull=t=>t.replace(/,/g,'，').replace(/\?/g,'？').replace(/!/g,'！').replace(/:/g,'：').replace(/;/g,'；').replace(/[“”"]/g,'「').replace(/([^\s])\.(\s|$)/g,'$1。$2');
 function vVoice(){
  const pool=VOICE_ART.concat(allArticles().filter(a=>a.lang==='zh'&&countChars(a,'含標點')>=400));if(!pool.find(a=>a.id===vv.id))vv.id=pool[0].id;
- app.innerHTML=`<div class="card"><h2>語音輸入練習</h2><p class="lead">用說的輸入文字：打開裝置的語音輸入，對著麥克風念出下面的文章，網頁會比對你說對了多少字。<b>這裡只供練習，不列入檢定與排行榜。</b></p>
+ if(!vv.per)vv.per=3;if(vv.auto===undefined)vv.auto=true;
+ const a=pool.find(x=>x.id===vv.id),sp=vv.ver==='空格版';
+ const isP=c=>/[，。、；：？！「」『』（）《》〈〉—…]/.test(c);
+ const G=[];for(let i=0;i<a.lines.length;i+=vv.per)G.push(a.lines.slice(i,i+vv.per));
+ app.innerHTML=`<div class="card"><h2>語音輸入練習</h2><p class="lead">用說的輸入文字：點一下輸入框，打開裝置的語音輸入，念出輸入框上方的句子，網頁會比對你說對了多少字。<b>這裡只供練習，不列入檢定與排行榜。</b></p>
  <details class="aip" style="margin-bottom:14px"><summary>怎麼開啟語音輸入？</summary><ul class="steps">
-  <li><b>Windows 電腦</b>：點一下下方的輸入框，按 <kbd>Windows 鍵</kbd> ＋ <kbd>H</kbd>，出現麥克風後開始說話。</li>
+  <li><b>Windows 電腦</b>：點一下輸入框，按 <kbd>Windows 鍵</kbd> ＋ <kbd>H</kbd>，出現麥克風後開始說話。</li>
   <li><b>iPad／iPhone</b>：點輸入框叫出鍵盤，按鍵盤上的<b>麥克風</b>按鈕。</li>
   <li><b>Android 手機、平板</b>：點輸入框，按 Gboard 鍵盤上的<b>麥克風</b>按鈕。</li>
   <li><b>Mac</b>：在「系統設定」開啟「聽寫」，再用快捷鍵啟動。</li></ul>
-  <p class="muted">小提醒：說話速度放慢、一句一句說，在安靜的地方練習效果最好。選「含標點」時，可以試著說出「逗號」「句號」「問號」，大多數語音輸入會自動轉成標點；選「空格版」則不用管標點。</p></details>
- <div class="row" style="gap:16px;align-items:flex-end;margin-bottom:12px">
-  <label class="f">文章<select id="va"><optgroup label="語音練習專用">${VOICE_ART.map(a=>`<option value="${a.id}" ${a.id===vv.id?'selected':''}>${esc(a.title)}（${countChars(a,'含標點')} 字）</option>`).join('')}</optgroup><optgroup label="檢定文章">${pool.filter(a=>a.grade!=='語音練習').map(a=>`<option value="${esc(a.id)}" ${a.id===vv.id?'selected':''}>${esc(a.title)}（${countChars(a,'含標點')} 字）</option>`).join('')}</optgroup></select></label>
-  <label class="f">版本${segHTML('vver',['含標點','空格版'],vv.ver)}</label><button class="btn" id="vre">重新開始</button></div>
- <div class="stats">${statHTML([['v1s','用時'],['v2s','已完成'],['v3s','說對的字'],['v4s','正確率 %'],['v5s','速度 字/分']])}</div>
- <div class="vtg" id="vtg"></div>
- <textarea id="vin" class="vin" placeholder="點這裡，開啟語音輸入後，開始念上面的文章……"></textarea>
- <div class="row" style="margin-top:10px"><button class="btn pri" id="vdone">完成</button><span class="muted" id="vmsg">說錯的字可以直接用鍵盤修改。</span></div><div id="vres"></div></div>`;
- const a=pool.find(x=>x.id===vv.id),sp=vv.ver==='空格版';
- const isP=c=>/[，。、；：？！「」『』（）《》〈〉—…]/.test(c);
- const disp=[...a.lines.join('\n')];const T=[],spans=[];
- $('#vtg').innerHTML=disp.map(c=>{if(c==='\n')return'<br>';if(sp&&isP(c))return`<span class="vp">${esc(c)}</span>`;T.push(c);return`<span class="c">${esc(c)}</span>`}).join('');
- $$('#vtg .c').forEach(x=>spans.push(x));
- let t0=0,timer=0,done=false,last={count:0,typed:0},raf=0;const vin=$('#vin');
+  <p class="muted">小提醒：說話速度放慢、一句一句說，在安靜的地方練習效果最好。選「含標點」時，可以試著說出「逗號」「句號」「問號」，大多數語音輸入會自動轉成標點；選「空格版」則不用管標點。換到下一段時，iPad／iPhone 的語音輸入可能會停止，再按一次麥克風即可。</p></details>
+ <div class="row" style="gap:16px;align-items:flex-end;margin-bottom:4px">
+  <label class="f">文章<select id="va"><optgroup label="語音練習專用">${VOICE_ART.map(x=>`<option value="${x.id}" ${x.id===vv.id?'selected':''}>${esc(x.title)}（${countChars(x,'含標點')} 字）</option>`).join('')}</optgroup><optgroup label="檢定文章">${pool.filter(x=>x.grade!=='語音練習').map(x=>`<option value="${esc(x.id)}" ${x.id===vv.id?'selected':''}>${esc(x.title)}（${countChars(x,'含標點')} 字）</option>`).join('')}</optgroup></select></label>
+  <label class="f">版本${segHTML('vver',['含標點','空格版'],vv.ver)}</label>
+  <label class="f">每段${segHTML('vper',['1 行','3 行'],vv.per+' 行')}</label>
+  <label class="row muted" style="gap:6px"><input type="checkbox" id="vauto" ${vv.auto?'checked':''} style="width:20px;height:20px">說完一段自動跳到下一段</label></div>
+ <div class="xbar" id="vbar"><div class="xtime"><span>用時</span><div class="timer" id="v1s">00:00</div></div>
+  <div class="xstats">${statHTML([['v2s','已完成'],['v3s','說對的字'],['v4s','正確率 %'],['v5s','速度 字/分']])}</div>
+  <div class="xact"><button class="btn pri" id="vdone">完成</button><button class="btn" id="vre">重新開始</button></div><span class="muted" id="vmsg" style="flex-basis:100%;font-size:12.5px">說錯的字可以直接用鍵盤修改；字數只計算說對的字。</span></div>
+ <div id="vres"></div>
+ <div id="vgroups">${G.map((g,gi)=>`<div class="vgrp" id="vg${gi}"><div class="vtg2">${g.map(l=>[...l].map(c=>sp&&isP(c)?`<span class="vp">${esc(c)}</span>`:`<span class="c">${esc(c)}</span>`).join('')).join('<br>')}</div>
+  <textarea class="vin2" id="vi${gi}" data-g="${gi}" rows="${vv.per===1?2:3}" placeholder="${gi===0?'點這裡，開啟語音輸入後，念出上面的句子……':''}"></textarea></div>`).join('')}</div></div>`;
+ const bar=$('#vbar'),bro=new ResizeObserver(()=>document.documentElement.style.setProperty('--barh',bar.offsetHeight+'px'));bro.observe(bar);
  const norm=v=>{let u=[...toFull(v).replace(/\s/g,'')];if(sp)u=u.filter(c=>!isP(c));return u};
- const calc=()=>{raf=0;const u=norm(vin.value);const {hit,count}=lcs(T,u);let lastHit=-1;
-  spans.forEach((s,i)=>{if(hit[i])lastHit=i;s.className='c'+(hit[i]?' ok':'')});spans.forEach((s,i)=>{if(!hit[i]&&i<lastHit)s.classList.add('bad')});
-  if(lastHit+1<spans.length){const c=spans[lastHit+1],box=$('#vtg');c.classList.add('cur');const y=c.offsetTop;if(y<box.scrollTop||y>box.scrollTop+box.clientHeight-40)box.scrollTop=Math.max(0,y-80)}
-  last={count,typed:u.length};show()};
- const show=()=>{const sec=t0?Math.max(1,(Date.now()-t0)/1000):0;$('#v1s').textContent=fmtT(sec);$('#v2s').textContent=Math.floor(last.count/T.length*100)+'%';$('#v3s').textContent=last.count;
+ const GS=G.map((g,gi)=>{const sp_=$$(`#vg${gi} .c`);return{sp:sp_,t:sp_.map(x=>x.textContent),ip:$('#vi'+gi)}});
+ const TOTAL=GS.reduce((n,g)=>n+g.t.length,0);
+ let t0=0,timer=0,done=false,last={count:0,typed:0},raf=0,advT=0;
+ const calc=()=>{raf=0;let count=0,typed=0;GS.forEach(g=>{const u=norm(g.ip.value);const r=lcs(g.t,u);let lh=-1;
+   g.sp.forEach((s,i)=>{if(r.hit[i])lh=i;s.className='c'+(r.hit[i]?' ok':'')});g.sp.forEach((s,i)=>{if(!r.hit[i]&&i<lh)s.classList.add('bad')});
+   if(document.activeElement===g.ip&&lh+1<g.sp.length)g.sp[lh+1].classList.add('cur');
+   g.count=r.count;g.len=u.length;count+=r.count;typed+=u.length});last={count,typed};show()};
+ const show=()=>{const sec=t0?Math.max(1,(Date.now()-t0)/1000):0;$('#v1s').textContent=fmtT(sec);$('#v2s').textContent=Math.floor(last.count/TOTAL*100)+'%';$('#v3s').textContent=last.count;
   $('#v4s').textContent=last.typed?pct(last.count,last.typed):100;$('#v5s').textContent=sec?Math.floor(last.count/sec*60):0};
  const start=()=>{if(t0||done)return;t0=Date.now();track('start');timer=setInterval(show,500)};
- vin.addEventListener('input',()=>{if(done)return;start();if(!raf)raf=requestAnimationFrame(calc)});
- vin.addEventListener('paste',e=>e.preventDefault());
- const finish=()=>{if(done||!t0)return;done=true;clearInterval(timer);calc();vin.readOnly=true;track('finish');
+ const goto=gi=>{const g=GS[gi];if(!g)return;g.ip.focus({preventScroll:true});$('#vg'+gi).scrollIntoView({block:'center',behavior:'smooth'});calc()};
+ GS.forEach((g,gi)=>{
+  g.ip.addEventListener('input',()=>{if(done)return;start();if(!raf)raf=requestAnimationFrame(calc);
+   clearTimeout(advT);if(vv.auto)advT=setTimeout(()=>{calc();if(document.activeElement===g.ip&&g.len>=g.t.length*0.9&&GS[gi+1])goto(gi+1);if(!GS[gi+1]&&last.count>=TOTAL)finish()},1200)});
+  g.ip.addEventListener('focus',()=>{if(!raf)raf=requestAnimationFrame(calc)});
+  g.ip.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();GS[gi+1]?goto(gi+1):$('#vdone').focus()}});
+  g.ip.addEventListener('paste',e=>e.preventDefault())});
+ const finish=()=>{if(done||!t0)return;done=true;clearInterval(timer);clearTimeout(advT);calc();GS.forEach(g=>g.ip.readOnly=true);track('finish');
   const sec=Math.max(1,Math.round((Date.now()-t0)/1000)),spd=Math.floor(last.count/sec*60),acc=last.typed?pct(last.count,last.typed):0;
   addRecord({type:'練習',lang:'voice',title:'語音・'+a.title+'（'+vv.ver+'）',speed:spd,unit:'字/分',acc,sec});
-  $('#vres').innerHTML=`<div class="card res" style="background:var(--soft);margin-top:14px"><div class="muted">語音輸入練習完成</div><div class="big">${spd}<small style="font-size:22px"> 字/分</small></div>
-  <p>說對 ${last.count} 字／全文 ${T.length} 字（完成 ${Math.floor(last.count/T.length*100)}%）　正確率 ${acc}%　用時 ${fmtT(sec)}<br><span class="muted">語音輸入練習只供參考，不列入檢定與排行榜。</span></p><button class="btn pri" id="vagain">再練一次</button></div>`;
+  $('#vres').innerHTML=`<div class="card res" style="background:var(--soft)"><div class="muted">語音輸入練習完成</div><div class="big">${spd}<small style="font-size:22px"> 字/分</small></div>
+  <p>說對 ${last.count} 字／全文 ${TOTAL} 字（完成 ${Math.floor(last.count/TOTAL*100)}%）　正確率 ${acc}%　用時 ${fmtT(sec)}<br><span class="muted">語音輸入練習只供參考，不列入檢定與排行榜。</span></p><button class="btn pri" id="vagain">再練一次</button></div>`;
   $('#vagain').onclick=vVoice;$('#vres').scrollIntoView({behavior:'smooth',block:'center'})};
- $('#vdone').onclick=()=>{if(!t0){$('#vmsg').textContent='還沒有開始喔！請先在輸入框用語音輸入。';return}finish()};
- $('#va').onchange=e=>{vv.id=e.target.value;vVoice()};segBind('vver',v=>{vv.ver=v;vVoice()});$('#vre').onclick=vVoice;
- calc();cleanup=()=>clearInterval(timer);
+ $('#vdone').onclick=()=>{if(!t0){$('#vmsg').textContent='還沒有開始喔！請先點輸入框，用語音輸入。';return}finish()};
+ $('#va').onchange=e=>{vv.id=e.target.value;vVoice()};segBind('vver',v=>{vv.ver=v;vVoice()});segBind('vper',v=>{vv.per=parseInt(v);vVoice()});
+ $('#vauto').onchange=e=>vv.auto=e.target.checked;$('#vre').onclick=vVoice;
+ calc();cleanup=()=>{clearInterval(timer);clearTimeout(advT);bro.disconnect();document.documentElement.style.removeProperty('--barh')};
 }
 
 /* 成績 */
