@@ -116,6 +116,11 @@ export default {
       const correct = int(b.correct, 0, 20000), wrong = int(b.wrong, 0, 20000), missed = int(b.missed, 0, 20000);
       if (!nickname || !lang || !timeLimit || duration === null || correct === null || wrong === null || missed === null || duration > timeLimit * 60 + 5)
         return json({ ok: false, error: '成績資料不完整或不正確' }, 400);
+      // 非鍵盤輸入（語音、手寫、貼上）偵測：按鍵數相對於輸入字數太少
+      const keys = int(b.keystrokes, 0, 200000);
+      if (keys === null) return json({ ok: false, error: '請重新整理網頁後再測驗一次' }, 400);
+      if (correct + wrong >= 20 && keys / (correct + wrong) < (lang === 'zh' ? 0.8 : 0.5))
+        return json({ ok: false, nonKeyboard: true, error: '偵測到語音或其他非鍵盤輸入，這次成績不列入' }, 400);
       const total = int(b.totalChars, 1, 20000);
       if (!b.finishedAll && duration < timeLimit * 60 * 0.8 - 2 && (!total || correct + wrong < total * 0.8 - 1))
         return json({ ok: false, error: '內容或時間未達 80%，這次成績不列入紀錄' }, 400);
@@ -365,7 +370,7 @@ export default {
     // ===== 使用統計 =====
     if (url.pathname === '/api/track' && request.method === 'POST') {
       const b = await readJson(request);
-      const routes = ['home','keys','zhuyin','chinese','punct','english','exam','records','rank','classrank'];
+      const routes = ['home','keys','zhuyin','chinese','punct','english','voice','exam','records','rank','classrank'];
       if (!routes.includes(b.route) || !['view','start','finish'].includes(b.event) || !/^[a-z0-9]{8,40}$/.test(String(b.vid || ''))) return json({ ok: false }, 400);
       const day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
       await env.DB.prepare('INSERT INTO usage_events (day, route, event, vid, mode) VALUES (?,?,?,?,?)').bind(day, b.route, b.event, b.vid, b.mode === 'cert' ? 'cert' : 'general').run();
