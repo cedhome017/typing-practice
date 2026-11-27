@@ -247,6 +247,11 @@ const level=(lang,sp,acc)=>acc<80?'未評級':(lang==='zh'?ZH_LV:EN_LV).find(([t
 const user=()=>store.get(K.user,'');
 function addRecord(r){const a=store.get(K.rec,[]);const c=cert();a.unshift({...r,title:r.title+(c&&r.type==='檢定'?'（認證）':''),who:c?`${c.className} ${c.seat}號`:user(),at:Date.now()});store.set(K.rec,a.slice(0,800));
  if(r.type==='練習'&&user()&&!cert())apiReady.then(ok=>ok&&postJSON('/api/practice',{nickname:user(),mode:{en:'english',zy:'zhuyin',zh:'chinese'}[r.lang]||'chinese',item:r.title,speed:r.speed,unit:r.unit,accuracy:r.acc,durationSec:r.sec}).catch(()=>{}))}
+/* 使用統計：匿名代號，只用來計算人數 */
+let curRoute='home';
+const VID=(()=>{let v=store.get('typing.vid','');if(!/^[a-z0-9]{8,40}$/.test(v)){v=Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>(b%36).toString(36)).join('');store.set('typing.vid',v)}return v})();
+function track(event,route){if(typeof IS_T!=='undefined'&&IS_T)return;const r=route||curRoute;
+ apiReady.then(ok=>{if(!ok)return;fetch('/api/track',{method:'POST',keepalive:true,headers:{'content-type':'application/json'},body:JSON.stringify({route:r,event,vid:VID,mode:cert()?'cert':'general'})}).catch(()=>{})})}
 /* 線上資料庫（只有 Cloudflare 網址才有） */
 const apiReady=(location.protocol.startsWith('http')?fetch('/api/health',{cache:'no-store'}).then(r=>r.json()).then(d=>!!d.ok):Promise.resolve(false)).catch(()=>false);
 async function postJSON(url,body,headers){const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json',...(headers||{})},body:JSON.stringify(body)});return r.json()}
@@ -319,10 +324,10 @@ function runKeyDrill(text,label,again){
   if(pos<text.length){const ks=keysFor(text[pos]);kbMark(app,ks);$('#hint').textContent=`下一個：${text[pos]===' '?'空白鍵':text[pos]} → 用 ${fingerOf(ks[0])}${ks[1]?'，另一手小指按 Shift':''}`}};
  st.onkeydown=e=>{if(done||e.ctrlKey||e.metaKey||e.altKey)return;let k=e.key;
   if(k==='Process'||k==='Unidentified'){k=codeKey(e.code);if(k&&e.shiftKey)k=SHIFTED[k]||k.toUpperCase()}
-  if(!k||k.length!==1)return;e.preventDefault();if(!t0)t0=Date.now();
+  if(!k||k.length!==1)return;e.preventDefault();if(!t0){t0=Date.now();track('start')}
   if(k===text[pos]){pos++}else{err++;const c=sp[pos];c.classList.add('err');st.classList.remove('shake');void st.offsetWidth;st.classList.add('shake')}
   upd();if(pos>=text.length)finish()};
- const finish=()=>{done=true;const sec=(Date.now()-t0)/1000,wpm=Math.round(pos/5/sec*60),acc=pct(pos,pos+err);kbMark(app,[]);st.classList.remove('live');
+ const finish=()=>{done=true;track('finish');const sec=(Date.now()-t0)/1000,wpm=Math.round(pos/5/sec*60),acc=pct(pos,pos+err);kbMark(app,[]);st.classList.remove('live');
   addRecord({type:'練習',lang:'en',title:label,speed:wpm,unit:'WPM',acc,sec:Math.round(sec)});
   st.innerHTML=`<div class="res"><div class="muted">完成！</div><div class="big">${wpm}<small style="font-size:22px"> WPM</small></div><p>打對 ${pos} 個字元 ＝ ${(pos/5).toFixed(1)} 個字（每 5 個字元算 1 個字）<br>正確率 ${acc}%　錯誤 ${err} 次　用時 ${fmtT(sec)}</p><button class="btn pri" id="agn">再練一回</button></div>`;
   $('#hint').textContent='';$('#agn').onclick=again;$('#agn').focus()};
@@ -349,10 +354,10 @@ function runZy(units,label,again){
   st.innerHTML=`<div class="cover">點這裡開始打字</div><div class="zbig">${esc(u.show)}</div>${isSym?'':`<div class="zrow">${u.keys.map((k,i)=>`<span class="zs ${i<ki?'ok':i===ki?'cur':''}">${k===' '?'一聲<small>空白鍵</small>':ZY[k]}</span>`).join('')}</div>`}<div class="next">${units.slice(ui+1,ui+6).map(x=>esc(x.show)).join(' ')}</div>`;
   const k=u.keys[ki];kbMark(app,[k]);$('#hint').textContent=`下一鍵：${k===' '?'空白鍵（一聲）':ZY[k]+'（'+keyName(k)+' 鍵）'} → 用 ${fingerOf(k)}`;
   const sec=t0?(Date.now()-t0)/1000:0;$('#s1').textContent=(sec>1?Math.round((isSym?ok:ui)/sec*60):0)+(isSym?' 鍵/分':' 字/分');$('#s2').textContent=ok+err?pct(ok,ok+err):100;$('#s3').textContent=err;$('#s4').textContent=`${ui}/${units.length}`};
- st.onkeydown=e=>{if(done||e.ctrlKey||e.metaKey||e.altKey)return;const k=codeKey(e.code);if(k===undefined)return;e.preventDefault();if(!t0)t0=Date.now();
+ st.onkeydown=e=>{if(done||e.ctrlKey||e.metaKey||e.altKey)return;const k=codeKey(e.code);if(k===undefined)return;e.preventDefault();if(!t0){t0=Date.now();track('start')}
   if(k===units[ui].keys[ki]){ok++;ki++;if(ki>=units[ui].keys.length){ui++;ki=0}if(ui>=units.length)return finish();draw();st.focus()}
   else{err++;st.classList.remove('shake');void st.offsetWidth;st.classList.add('shake');$('#s3').textContent=err}};
- const finish=()=>{done=true;const sec=(Date.now()-t0)/1000,sp=Math.round((isSym?ok:units.length)/sec*60),acc=pct(ok,ok+err);kbMark(app,[]);st.classList.remove('live');
+ const finish=()=>{done=true;track('finish');const sec=(Date.now()-t0)/1000,sp=Math.round((isSym?ok:units.length)/sec*60),acc=pct(ok,ok+err);kbMark(app,[]);st.classList.remove('live');
   addRecord({type:'練習',lang:'zy',title:label,speed:sp,unit:isSym?'鍵/分':'字/分',acc,sec:Math.round(sec)});
   st.innerHTML=`<div class="res"><div class="muted">完成！</div><div class="big">${sp}<small style="font-size:22px"> ${isSym?'鍵/分':'字/分'}</small></div><p>正確率 ${acc}%　錯誤 ${err} 次　用時 ${fmtT(sec)}</p><button class="btn pri" id="agn">再練一回</button></div>`;$('#hint').textContent='';$('#agn').onclick=again;$('#agn').focus()};
  draw();st.focus();
@@ -377,10 +382,10 @@ function vChinese(){
  const show=()=>{const w=list[idx%list.length];$('#cw').textContent=w;$('#czy').textContent=showZy?wordZy(w):''};
  const reset=()=>{clearInterval(timer);list=shuffle(WORDS[set]);idx=0;t0=0;good=0;bad=0;chars=0;done=false;ci.value='';ci.readOnly=false;$('#c1').textContent=fmtT(mins*60);['c2','c3','c4'].forEach(i=>$('#'+i).textContent=0);show();ci.focus()};
  const tick=()=>{const sec=(Date.now()-t0)/1000,left=mins*60-sec;$('#c1').textContent=fmtT(Math.max(0,left));$('#c2').textContent=Math.round(chars/Math.max(sec,1)*60);if(left<=0)end()};
- const start=()=>{if(!t0&&!done){t0=Date.now();timer=setInterval(tick,250)}};
+ const start=()=>{if(!t0&&!done){t0=Date.now();track('start');timer=setInterval(tick,250)}};
  const check=()=>{if(done)return;const v=ci.value.trim(),w=list[idx%list.length];if(v===w){good++;chars+=w.length;next(true)}};
  const next=okk=>{idx++;ci.value='';$('#c3').textContent=good;$('#c4').textContent=bad;const s=$('#cst');s.classList.add(okk?'flash-ok':'flash-bad');setTimeout(()=>s.classList.remove('flash-ok','flash-bad'),250);show()};
- const end=()=>{done=true;clearInterval(timer);ci.readOnly=true;const sp=Math.round(chars/(mins*60)*60),acc=pct(good,good+bad);
+ const end=()=>{done=true;track('finish');clearInterval(timer);ci.readOnly=true;const sp=Math.round(chars/(mins*60)*60),acc=pct(good,good+bad);
   addRecord({type:'練習',lang:'zh',title:'中打・'+set,speed:sp,unit:'字/分',acc,sec:mins*60});
   $('#cw').innerHTML=`<div class="res"><div class="big">${sp}<small style="font-size:22px"> 字/分</small></div></div>`;$('#czy').textContent=`答對 ${good} 個，共 ${chars} 字；跳過或打錯 ${bad} 個`};
  ci.addEventListener('compositionstart',start);ci.addEventListener('compositionend',check);
@@ -409,10 +414,10 @@ function vPunct(){
   const chk=()=>{const v=inp.value.trim();if(!v)return;if(v.includes(P.s)){tcount[P.s]=(tcount[P.s]||0)+1;out.className='tres ok';out.textContent=`✓ 打對 ${tcount[P.s]} 次`;setTimeout(()=>inp.value='',350)}
    else{out.className='tres bad';out.textContent='✗ 不是這個，再試一次';setTimeout(()=>inp.value='',600)}};
   inp.addEventListener('input',e=>{if(!e.isComposing)chk()});inp.addEventListener('compositionend',chk);inp.addEventListener('focus',()=>kbMark(app,P.keys))});
- let showHow=true,q,good,bad,t0,used;const pi=$('#pi');
+ let showHow=true,q,good,bad,t0,used,pStarted=false;const pi=$('#pi');const pStart=()=>{if(!pStarted){pStarted=true;track('start')}};
  const newQ=()=>{q=PUNCT[Math.random()*PUNCT.length|0];$('#pw').textContent=q.s;$('#ph').innerHTML=`${q.n}${showHow?'：'+q.how:''}`;kbMark(app,showHow?q.keys:[]);pi.value='';t0=Date.now()};
  const reset=()=>{good=0;bad=0;used=0;['p1','p2','p3'].forEach(i=>$('#'+i).textContent=0);newQ()};
- const check=()=>{const v=pi.value.trim();if(!v)return;const s=$('#pst');
+ const check=()=>{const v=pi.value.trim();if(!v)return;pStart();const s=$('#pst');
   if(v.includes(q.s)){good++;used+=(Date.now()-t0)/1000;s.classList.add('flash-ok');setTimeout(()=>s.classList.remove('flash-ok'),250);newQ()}
   else{bad++;s.classList.add('flash-bad');setTimeout(()=>{s.classList.remove('flash-bad');pi.value=''},450);if(!showHow){$('#ph').innerHTML=`${q.n}：${q.how}`;kbMark(app,q.keys)}}
   $('#p1').textContent=good;$('#p2').textContent=bad;$('#p3').textContent=good?(used/good).toFixed(1):0};
@@ -420,7 +425,7 @@ function vPunct(){
  segBind('pm',v=>{showHow=v==='顯示按法';newQ()});$('#prs').onclick=reset;reset();
  let si=0,sl=shuffle(PSENT);const sq=$('#sq'),sin=$('#si');
  const showS=()=>{sq.innerHTML=[...sl[si%sl.length]].map(c=>`<span>${esc(c)}</span>`).join('');sin.value='';$('#sr').textContent=''};
- sin.addEventListener('keydown',e=>{if(e.key!=='Enter'||e.isComposing||e.keyCode===229)return;e.preventDefault();const t=[...sl[si%sl.length]],u=[...sin.value.replace(/\s/g,'')];const {hit,count}=lcs(t,u);
+ sin.addEventListener('keydown',e=>{if(e.key!=='Enter'||e.isComposing||e.keyCode===229)return;e.preventDefault();pStart();const t=[...sl[si%sl.length]],u=[...sin.value.replace(/\s/g,'')];const {hit,count}=lcs(t,u);
   $$('span',sq).forEach((s,i)=>s.className=hit[i]?'ok':'bad');const isP=c=>PUNCT_ONE.test(c),pt=t.filter(isP),pok=t.filter((c,i)=>hit[i]&&isP(c));
   $('#sr').textContent=count===t.length&&u.length===t.length?'全部正確！按「下一句」繼續。':`標點符號對了 ${pok.length}／${pt.length} 個，紅色是錯誤或漏打的地方。`});
  sin.addEventListener('paste',e=>e.preventDefault());$('#snext').onclick=()=>{si++;showS();sin.focus()};showS();
@@ -474,8 +479,8 @@ function runExam(a){
   prog=done_/TOTAL;gate();
   const sec=t0?Math.max(1,(Date.now()-t0)/1000):1;const sp=Math.floor((zh?ok:ok/5)/sec*60);
   $('#x1').textContent=ok;$('#x2').textContent=wr;$('#x3').textContent=miss;$('#x4').textContent=t0?sp:0;return{ok,wr,miss,sp,sec}};
- const start=()=>{if(t0||done)return;t0=Date.now();timer=setInterval(()=>{const left=limit-(Date.now()-t0)/1000;$('#xt').textContent=fmtT(Math.max(0,left));gate();if(left<=0)finish('時間到')},250)};
- const finish=why=>{if(done)return;done=true;clearInterval(timer);L.forEach(l=>l.ip.readOnly=true);$('#xsub').disabled=true;$('#xgate').textContent='';
+ const start=()=>{if(t0||done)return;t0=Date.now();track('start');timer=setInterval(()=>{const left=limit-(Date.now()-t0)/1000;$('#xt').textContent=fmtT(Math.max(0,left));gate();if(left<=0)finish('時間到')},250)};
+ const finish=why=>{if(done)return;done=true;if(t0)track('finish');clearInterval(timer);L.forEach(l=>l.ip.readOnly=true);$('#xsub').disabled=true;$('#xgate').textContent='';
   const r=evalAll();const sec=t0?Math.max(1,Math.round(Math.min(limit,(Date.now()-t0)/1000))):0;const sp=sec?Math.floor((zh?r.ok:r.ok/5)/sec*60):0;const acc=pct(r.ok,r.ok+r.wr);const lv=level(a.lang,sp,acc);
   if(t0)addRecord({type:'檢定',lang:a.lang,title:a.title+(zh?'（'+ver+'）':''),speed:sp,unit:zh?'字/分':'WPM',acc,sec:Math.round(sec),level:lv,min:ex.mins});
   $('#xres').innerHTML=`<div class="card res" style="background:var(--soft)"><div class="muted">${why}</div><div class="big">${sp}<small style="font-size:22px"> ${zh?'字/分':'WPM'}</small></div><div class="lv">${lv}</div>
@@ -591,9 +596,23 @@ function vRecords(){
 
 
 
-const TTABS=['班級與認證','自訂文章','一般排行榜管理'];
+const TTABS=['班級與認證','自訂文章','一般排行榜管理','使用統計'];
 const ttab=()=>{let v=null;try{v=sessionStorage.getItem('typing.ttab')}catch(e){}return TTABS.includes(v)?v:TTABS[0]};
 const tex={rows:[],page:0,q:''};let rgLen='4';
+
+const ROUTE_NAME={home:'首頁',keys:'指法',zhuyin:'注音鍵位',chinese:'中打',punct:'標點符號',english:'英打',exam:'檢定',records:'成績',rank:'排行榜',classrank:'班級成績（認證）'};
+async function loadStats(days){const box=$('#stbox');if(!box)return;box.innerHTML='<p class="muted">載入中…</p>';
+ try{const d=await tApi('/api/teacher/stats?days='+days);if(!d.ok){box.innerHTML=`<p class="muted">${esc(d.error)}</p>`;return}
+  const t=d.total||{},n=v=>v||0,pages=Object.keys(ROUTE_NAME).map(r=>Object.assign({route:r,views:0,viewers:0,starts:0,starters:0,finishes:0},(d.pages||[]).find(x=>x.route===r)||{}));
+  const maxV=Math.max(1,...pages.map(p=>n(p.views)));const maxD=Math.max(1,...(d.daily||[]).map(x=>n(x.visitors)));
+  box.innerHTML=`<div class="stats"><div class="stat"><b>${n(t.visitors)}</b><span>瀏覽人數</span></div><div class="stat"><b>${n(t.views)}</b><span>瀏覽次數</span></div><div class="stat"><b>${n(t.practicers)}</b><span>有練習的人數</span></div><div class="stat"><b>${n(t.starts)}</b><span>開始練習次數</span></div><div class="stat"><b>${n(t.finishes)}</b><span>完成次數</span></div></div>
+  <h3 style="margin-top:8px">各分頁使用情況</h3><div class="scroll"><table><thead><tr><th>分頁</th><th style="width:28%">瀏覽次數</th><th class="num">瀏覽人數</th><th class="num">開始練習（人數）</th><th class="num">開始練習（次數）</th><th class="num">完成次數</th><th class="num">完成率</th></tr></thead><tbody>
+  ${pages.map(p=>{const practice=!['home','records','rank','classrank'].includes(p.route)&&p.route!=='keys';return`<tr><td><b>${ROUTE_NAME[p.route]}</b></td><td><div style="display:flex;align-items:center;gap:8px"><div style="height:10px;border-radius:5px;background:var(--acc);width:${Math.round(n(p.views)/maxV*100)}%;min-width:${n(p.views)?3:0}px"></div><span class="num">${n(p.views)}</span></div></td><td class="num">${n(p.viewers)}</td>
+   <td class="num">${practice?n(p.starters):'—'}</td><td class="num">${practice?n(p.starts):'—'}</td><td class="num">${practice&&p.route!=='punct'?n(p.finishes):'—'}</td><td class="num">${practice&&p.route!=='punct'&&n(p.starts)?Math.round(n(p.finishes)/n(p.starts)*100)+'%':'—'}</td></tr>`}).join('')}</tbody></table></div>
+  <p class="muted">「開始練習」＝開始打字或開始計時；「完成」＝練習打完一回、中打時間到、檢定交卷。標點符號沒有「完成」，只計開始。完成率偏低，可能代表內容太長或太難。</p>
+  ${days>1&&(d.daily||[]).length?`<h3 style="margin-top:16px">每日瀏覽人數</h3><div class="scroll"><table><thead><tr><th>日期</th><th style="width:50%">人數</th><th class="num">瀏覽次數</th><th class="num">開始練習次數</th></tr></thead><tbody>${d.daily.slice().reverse().map(x=>`<tr><td>${esc(x.day.slice(5).replace('-','/'))}</td><td><div style="display:flex;align-items:center;gap:8px"><div style="height:10px;border-radius:5px;background:var(--cur);width:${Math.round(n(x.visitors)/maxD*100)}%"></div><span class="num">${n(x.visitors)}</span></div></td><td class="num">${n(x.views)}</td><td class="num">${n(x.starts)}</td></tr>`).join('')}</tbody></table></div>`:''}`;
+ }catch(e){box.innerHTML='<p class="muted">無法連線到資料庫。</p>'}}
+
 async function tApi(url,method,body){const r=await fetch(url,{method:method||'GET',headers:{'content-type':'application/json',authorization:'Bearer '+ss.get(TK)},body:body?JSON.stringify(body):undefined,cache:'no-store'});return r.json()}
 async function loadClasses(){const box=$('#tcls');if(!box)return;
  try{const d=await tApi('/api/teacher/classes');if(!d.ok){box.innerHTML=`<p class="muted">${esc(d.error)}</p>`;return}
@@ -698,9 +717,12 @@ function vTeacher(){
   <div class="card"><h3>已新增的文章（${cus.length} 篇）</h3>${cus.length?`<table><tbody>${cus.map((a,i)=>`<tr><td><b>${esc(a.title)}</b><br><span class="muted">${a.lang==='zh'?'中文':'英文'}・${esc(a.grade)}・${countChars(a,'含標點')} ${a.lang==='zh'?'字':'字元'}</span></td><td style="text-align:right"><button class="btn sm" data-del="${i}">刪除</button></td></tr>`).join('')}</tbody></table>`:'<p class="muted">目前沒有自訂文章。</p>'}</div>
   <div class="card"><h3>匯出／匯入</h3><p class="muted">按「匯出」會把自訂文章放進下方文字框並複製；在另一台電腦貼上後按「匯入」。</p><textarea id="tio" placeholder="[ ... ]"></textarea><div class="row" style="margin-top:10px"><button class="btn" id="texp">匯出</button><button class="btn" id="timp">匯入</button><span class="muted" id="iomsg"></span></div></div></section>
   <section data-tab="一般排行榜管理"><div class="card"><h3>一般排行榜管理（最近 200 筆，不含認證成績）</h3><p class="muted">發現不當暱稱或異常成績時，可以在這裡刪除。</p>
-  <div class="row" style="margin-bottom:10px"><input type="text" id="texq" placeholder="搜尋暱稱或文章" style="width:220px"></div><div id="tex"><p class="muted">載入中…</p></div></div></section>`;
+  <div class="row" style="margin-bottom:10px"><input type="text" id="texq" placeholder="搜尋暱稱或文章" style="width:220px"></div><div id="tex"><p class="muted">載入中…</p></div></div></section>
+  <section data-tab="使用統計"><div class="card"><h2>使用統計</h2><p class="lead">統計學生網址的使用情況（不含教師頁）。每台電腦的瀏覽器會有一個匿名代號，用來計算人數，不記錄姓名或 IP。同一位學生換電腦或清除瀏覽資料，會被算成另一人。</p>
+  <div class="row" style="margin-bottom:14px">${segHTML('sdays',['今天','7 天','30 天','全部'],'7 天')}</div><div id="stbox"><p class="muted">載入中…</p></div></div></section>`;
   const showTab=v=>{try{sessionStorage.setItem('typing.ttab',v)}catch(e){}$$('section[data-tab]').forEach(x=>x.hidden=x.dataset.tab!==v)};
   segBind('ttab',showTab);showTab(ttab());
+  segBind('sdays',v=>loadStats({'今天':1,'7 天':7,'30 天':30,'全部':3650}[v]));loadStats(7);
   $('#texq').oninput=()=>{tex.page=0;tex.q=$('#texq').value.trim();renderTExams()};
   $('#tout').onclick=()=>{ss.del(TK);location.href='/'};
   loadTExams();loadClasses();
@@ -740,7 +762,8 @@ const ROUTES={home:vHome,keys:vKeys,english:vEnglish,zhuyin:vZhuyin,chinese:vChi
 if(IS_T)ROUTES.teacher=vTeacherGate;
 function route(){let r=(location.hash||(IS_T?'#teacher':'#home')).slice(1);
  if(cert()&&r!=='exam'&&r!=='classrank'){r='exam';history.replaceState(null,'','#exam')}const fn=ROUTES[r]||vHome;if(cleanup){cleanup();cleanup=null}closeModal();
- $$('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.r===(ROUTES[r]?r:'home')));applyCert();fn();window.scrollTo(0,0)}
+ $$('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.r===(ROUTES[r]?r:'home')));applyCert();
+ curRoute=ROUTES[r]?r:'home';if(curRoute!=='teacher')track('view');fn();window.scrollTo(0,0)}
 document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g){if(location.hash.slice(1)===g.dataset.go)route();else location.hash=g.dataset.go}});
 window.addEventListener('hashchange',route);
 setWho();route();

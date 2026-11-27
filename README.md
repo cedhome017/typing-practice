@@ -50,12 +50,18 @@ npx wrangler deploy
 - 代碼連續輸錯 5 次暫停 5 分鐘。
 - 老師可逐班開放／關閉「學生查看全班成績」。認證成績不列入一般排行榜。
 
+## 使用統計
+
+教師頁「使用統計」分頁可查看今天／7 天／30 天／全部的瀏覽人數、瀏覽次數，以及各分頁的開始練習人數、次數與完成率。每台瀏覽器有一個匿名代號（`usage_events` 資料表），不記錄姓名或 IP；教師頁本身不列入統計。
+
 ## API
 
 | 方法 | 路徑 | 說明 |
 |---|---|---|
 | POST | `/api/exam` | 上傳檢定成績（速度、正確率、等級由伺服器重新計算） |
 | POST | `/api/practice` | 上傳練習成績（只記錄，不排行） |
+| POST | `/api/track` | 使用統計（匿名） |
+| GET | `/api/teacher/stats?days=7` | 教師：使用統計 |
 | GET | `/api/leaderboard?lang=zh&version=含標點&time=5` | 檢定排行榜，每人取最佳一次，正確率需達 80% |
 | POST | `/api/teacher/login` | 教師登入 |
 | GET | `/api/teacher/exams` | 教師：最近 200 筆檢定成績 |

@@ -361,6 +361,31 @@ export default {
       return json({ ok: false, error: '找不到這個 API' }, 404);
     }
 
+
+    // ===== 使用統計 =====
+    if (url.pathname === '/api/track' && request.method === 'POST') {
+      const b = await readJson(request);
+      const routes = ['home','keys','zhuyin','chinese','punct','english','exam','records','rank','classrank'];
+      if (!routes.includes(b.route) || !['view','start','finish'].includes(b.event) || !/^[a-z0-9]{8,40}$/.test(String(b.vid || ''))) return json({ ok: false }, 400);
+      const day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+      await env.DB.prepare('INSERT INTO usage_events (day, route, event, vid, mode) VALUES (?,?,?,?,?)').bind(day, b.route, b.event, b.vid, b.mode === 'cert' ? 'cert' : 'general').run();
+      return json({ ok: true });
+    }
+    if (url.pathname === '/api/teacher/stats') {
+      if (!(await isTeacher(request, secret))) return json({ ok: false, error: '請先登入教師帳號' }, 401);
+      const days = int(url.searchParams.get('days'), 1, 3650) || 7;
+      const since = new Date(Date.now() + 8 * 3600e3 - (days - 1) * 86400e3).toISOString().slice(0, 10);
+      const total = await env.DB.prepare(`SELECT COUNT(DISTINCT vid) AS visitors, SUM(event = 'view') AS views,
+          COUNT(DISTINCT CASE WHEN event = 'start' THEN vid END) AS practicers, SUM(event = 'start') AS starts, SUM(event = 'finish') AS finishes
+        FROM usage_events WHERE day >= ?`).bind(since).first();
+      const { results: pages } = await env.DB.prepare(`SELECT route, SUM(event = 'view') AS views, COUNT(DISTINCT CASE WHEN event = 'view' THEN vid END) AS viewers,
+          SUM(event = 'start') AS starts, COUNT(DISTINCT CASE WHEN event = 'start' THEN vid END) AS starters, SUM(event = 'finish') AS finishes
+        FROM usage_events WHERE day >= ? GROUP BY route`).bind(since).all();
+      const { results: daily } = await env.DB.prepare(`SELECT day, COUNT(DISTINCT vid) AS visitors, SUM(event = 'view') AS views, SUM(event = 'start') AS starts
+        FROM usage_events WHERE day >= ? GROUP BY day ORDER BY day`).bind(since).all();
+      return json({ ok: true, days, since, total, pages, daily });
+    }
+
     if (url.pathname === '/api/health') {
       try {
         const { results } = await env.DB.prepare(
