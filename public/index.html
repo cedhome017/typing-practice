@@ -109,13 +109,24 @@ kbd{display:inline-block;border:1px solid var(--line);border-bottom-width:3px;bo
 .note{background:var(--soft);border-left:4px solid var(--acc);padding:10px 14px;border-radius:6px;margin:12px 0}
 /* exam */
 .xbar{position:sticky;top:calc(var(--toph,64px) + 8px);z-index:4;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:14px 0;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;box-shadow:0 8px 20px light-dark(#0000001f,#00000080)}
-.xtime span{display:block;font-size:12px;color:var(--mute)}.xbar .timer{font-size:clamp(30px,4vw,42px)}
+.xtime span{display:block;font-size:12px;color:var(--mute)}.xbar .fmin{display:none}
+.xbar.float{position:fixed;z-index:30;left:auto;margin:0;width:auto;max-width:min(300px,calc(100vw - 16px));flex-direction:column;align-items:stretch;gap:6px;padding:8px 10px;opacity:.97}
+.xbar.float .fmin{display:block;position:absolute;top:2px;right:4px;border:0;background:none;font-size:18px;line-height:1;padding:4px 6px;cursor:pointer;color:var(--mute)}
+.xbar.float .xtime{display:flex;align-items:baseline;gap:6px;padding-right:22px}.xbar.float .timer{font-size:26px}
+.xbar.float .xstats{display:grid;grid-template-columns:1fr 1fr;gap:4px;order:0;flex-basis:auto}
+.xbar.float .xstats .stat{min-width:0;padding:3px 8px}.xbar.float .xstats .stat b{font-size:17px}.xbar.float .xstats .stat span{font-size:11px}
+.xbar.float .xstats .stat:not(:first-child):not(:last-child){display:none}
+.xbar.float .xact{margin:0}.xbar.float .xact .btn{min-height:36px;padding:4px 12px;flex:1}.xbar.float .xact .btn:not(.pri){display:none}
+.xbar.float #xgate,.xbar.float #vmsg{display:none}
+.xbar.float.mini .xstats,.xbar.float.mini .xact{display:none}
+.timer{font-size:clamp(30px,4vw,42px)}
 .xstats{display:flex;flex-wrap:wrap;gap:6px}.xstats .stat{padding:4px 10px;min-width:70px}.xstats .stat b{font-size:20px}
 .xact{margin-left:auto;display:flex;gap:8px;align-items:center}#xgate{flex-basis:100%;font-size:12.5px;text-align:right;margin-top:-6px}
 html{scroll-padding-top:calc(var(--toph,64px) + var(--barh,0px) + 24px)}
 @media(max-width:600px){.xbar{padding:8px 10px;gap:6px 10px}.xtime{display:flex;align-items:baseline;gap:6px}.xbar .timer{font-size:26px}.xact{margin-left:auto}.xact .btn{min-height:38px;padding:6px 12px}
  .xstats{order:3;flex-basis:100%;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}.xstats .stat{min-width:0;padding:3px 6px}.xstats .stat b{font-size:16px}.xstats .stat span{font-size:11px}#xgate{order:4;text-align:left;margin-top:0;font-size:11.5px}}
 @media(max-width:700px){.top{position:static}}
+.touchdev .top{position:static}
 .timer{font-size:clamp(40px,6vw,60px);font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
 .ln{margin-bottom:12px}
 .tg{font-size:var(--xf);line-height:1.7;letter-spacing:.08em;padding:0 13px;word-break:break-all;white-space:pre-wrap}
@@ -499,7 +510,7 @@ function runExam(a){
  <p class="note" style="margin:0 0 14px">打完一行後，按 <kbd>Enter</kbd> 鍵，可跳下一行。藍色底線是目前要打的字。<br>提醒：字底下還有<b>虛線</b>時，第一次按 <kbd>Enter</kbd> 是「確定選字」，虛線消失後再按一次 <kbd>Enter</kbd> 才會跳到下一行。</p><div id="xres"></div>
  <div id="lines">${L.map((l,i)=>`<div class="ln"><div class="tg ${zh?'':'en'}" id="tg${i}">${[...l.d].map(c=>c===' '&&zh?'<span class="gap"> </span>':`<span class="c">${esc(c)}</span>`).join('')}</div><input type="text" class="ip ${zh?'':'en'}" id="ip${i}" data-i="${i}" autocomplete="off" autocapitalize="off" spellcheck="false"></div>`).join('')}</div>
  </div>`;
- const bar=$('#xbar'),bro=new ResizeObserver(()=>document.documentElement.style.setProperty('--barh',bar.offsetHeight+'px'));bro.observe(bar);
+ const bro=floatBar($('#xbar'));
  L.forEach((l,i)=>{l.sp=$$('#tg'+i+' .c');l.ip=$('#ip'+i)});
  const TOTAL=L.reduce((n,l)=>n+l.t.length,0);let prog=0;
  const elapsed=()=>t0?(Date.now()-t0)/1000:0;
@@ -644,7 +655,7 @@ function vVoice(){
  <div id="vres"></div>
  <div id="vgroups">${G.map((g,gi)=>`<div class="vgrp" id="vg${gi}"><div class="vtg2">${g.map(l=>[...l].map(c=>sp&&isP(c)?`<span class="vp">${esc(c)}</span>`:`<span class="c">${esc(c)}</span>`).join('')).join('<br>')}</div>
   <textarea class="vin2" id="vi${gi}" data-g="${gi}" rows="${vv.per===1?2:3}" placeholder="${gi===0?'點這裡，開啟語音輸入後，念出上面的句子……':''}"></textarea></div>`).join('')}</div></div>`;
- const bar=$('#vbar'),bro=new ResizeObserver(()=>document.documentElement.style.setProperty('--barh',bar.offsetHeight+'px'));bro.observe(bar);
+ const bro=floatBar($('#vbar'));
  const norm=v=>{let u=[...toFull(v).replace(/\s/g,'')];if(sp)u=u.filter(c=>!isP(c));return u};
  const GS=G.map((g,gi)=>{const sp_=$$(`#vg${gi} .c`);return{sp:sp_,t:sp_.map(x=>x.textContent),ip:$('#vi'+gi)}});
  const TOTAL=GS.reduce((n,g)=>n+g.t.length,0);
@@ -673,6 +684,20 @@ function vVoice(){
  $('#va').onchange=e=>{vv.id=e.target.value;vVoice()};segBind('vver',v=>{vv.ver=v;vVoice()});segBind('vper',v=>{vv.per=parseInt(v);vVoice()});
  $('#vauto').onchange=e=>vv.auto=e.target.checked;$('#vre').onclick=vVoice;
  calc();cleanup=()=>{clearInterval(timer);clearTimeout(advT);bro.disconnect();document.documentElement.style.removeProperty('--barh')};
+}
+
+
+/* 數據列：電腦上固定在頁首下方；平板、手機（或虛擬鍵盤開啟）時改成右上角的小型浮動視窗 */
+function floatBar(bar){
+ const vvp=window.visualViewport,touch=!matchMedia('(any-pointer: fine)').matches;
+ bar.insertAdjacentHTML('afterbegin','<button type="button" class="fmin" title="縮小／展開">－</button>');
+ const mini=bar.querySelector('.fmin');mini.onclick=()=>{bar.classList.toggle('mini');mini.textContent=bar.classList.contains('mini')?'＋':'－'};
+ const place=()=>{const kb=vvp&&vvp.height<innerHeight*0.8,fl=touch||kb;bar.classList.toggle('float',fl);
+  if(fl){bar.style.top=((vvp?vvp.offsetTop:0)+8)+'px';bar.style.right=((vvp?innerWidth-vvp.offsetLeft-vvp.width:0)+8)+'px';document.documentElement.style.setProperty('--barh','0px')}
+  else{bar.style.top='';bar.style.right='';bar.classList.remove('mini');document.documentElement.style.setProperty('--barh',bar.offsetHeight+'px')}};
+ const ro=new ResizeObserver(place);ro.observe(bar);
+ if(vvp){vvp.addEventListener('resize',place);vvp.addEventListener('scroll',place)}addEventListener('scroll',place,{passive:true});place();
+ return{disconnect(){ro.disconnect();if(vvp){vvp.removeEventListener('resize',place);vvp.removeEventListener('scroll',place)}removeEventListener('scroll',place)}};
 }
 
 /* 成績 */
@@ -916,6 +941,7 @@ function route(){let r=(location.hash||(IS_T?'#teacher':'#home')).slice(1);
  curRoute=ROUTES[r]?r:'home';if(curRoute!=='teacher'){track('view');if(curRoute==='keys'||PRACTICE_ROUTES.includes(curRoute))showPageStat(curRoute)}fn();window.scrollTo(0,0)}
 document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g){if(location.hash.slice(1)===g.dataset.go)route();else location.hash=g.dataset.go}});
 window.addEventListener('hashchange',route);
+if(!matchMedia('(any-pointer: fine)').matches)document.body.classList.add('touchdev');
 const setTopH=()=>document.documentElement.style.setProperty('--toph',(getComputedStyle($('.top')).position==='sticky'?$('.top').offsetHeight:0)+'px');addEventListener('resize',()=>setTopH());setTopH();new ResizeObserver(setTopH).observe($('.top'));
 setWho();route();
 }
