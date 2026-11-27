@@ -117,6 +117,8 @@ kbd{display:inline-block;border:1px solid var(--line);border-bottom-width:3px;bo
 .ip{width:100%;font-size:var(--xf)!important;letter-spacing:.08em;padding:8px 12px!important;line-height:1.7}
 .ip[readonly]{background:var(--soft)}
 .lvtab td,.lvtab th{text-align:center;padding:6px}
+.visits{font-size:14px;color:var(--mute);white-space:nowrap}.visits b{color:var(--ink);font-variant-numeric:tabular-nums}
+.pstat{display:block;margin-top:8px;font-size:13.5px;color:var(--acc);font-weight:700}
 .who.cert{background:var(--panel);border-color:var(--acc);color:var(--acc);font-weight:700}
 .conly{display:none}body.cert-on nav a{display:none}body.cert-on nav a[data-r=exam],body.cert-on nav a[data-r=classrank]{display:inline-block}
 body.cert-on .who.cert{background:var(--acc);color:#fff}
@@ -144,7 +146,7 @@ body.cert-on .certbar{display:block}
   <a href="#zhuyin" data-r="zhuyin">注音鍵位</a><a href="#chinese" data-r="chinese">中打</a><a href="#punct" data-r="punct">標點符號</a>
   <a href="#english" data-r="english">英打</a><a href="#exam" data-r="exam">檢定</a><a href="#records" data-r="records">成績</a><a href="#rank" data-r="rank">排行榜</a><a href="#classrank" data-r="classrank" class="conly">班級成績</a>
  </nav>
- <button class="who cert" id="certBtn" type="button">認證模式</button><button class="who" id="who" type="button">暱稱：未設定</button>
+ <span class="visits" id="visits" hidden></span><button class="who cert" id="certBtn" type="button">認證模式</button><button class="who" id="who" type="button">暱稱：未設定</button>
 </div></header>
 <div id="certbar" class="certbar"></div><main id="app"></main>
 <div class="modal" id="modal"><div class="card" id="mbox"></div></div>
@@ -252,6 +254,15 @@ let curRoute='home';
 const VID=(()=>{let v=store.get('typing.vid','');if(!/^[a-z0-9]{8,40}$/.test(v)){v=Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>(b%36).toString(36)).join('');store.set('typing.vid',v)}return v})();
 function track(event,route){if(typeof IS_T!=='undefined'&&IS_T)return;const r=route||curRoute;
  apiReady.then(ok=>{if(!ok)return;fetch('/api/track',{method:'POST',keepalive:true,headers:{'content-type':'application/json'},body:JSON.stringify({route:r,event,vid:VID,mode:cert()?'cert':'general'})}).catch(()=>{})})}
+/* 公開統計：右上角瀏覽人數、各分頁練習人數 */
+let pubStats=null;
+const PRACTICE_ROUTES=['zhuyin','chinese','punct','english','exam'];
+async function loadPub(force){if(pubStats&&!force)return pubStats;if(!(await apiReady))return null;
+ try{pubStats=await fetch('/api/stats/public').then(r=>r.json());const v=$('#visits');if(pubStats.ok){v.innerHTML=`瀏覽人數 <b>${pubStats.visitors.toLocaleString()}</b>`;v.hidden=false}}catch(e){}return pubStats}
+function statText(route){if(!pubStats||!pubStats.ok)return'';const r=pubStats.routes[route]||{viewers:0,practicers:0,starts:0};
+ if(PRACTICE_ROUTES.includes(route))return r.practicers?`已有 ${r.practicers.toLocaleString()} 人練習過，共 ${r.starts.toLocaleString()} 次`:'還沒有人練習，來當第一位！';
+ return r.viewers?`已有 ${r.viewers.toLocaleString()} 人看過`:''}
+function showPageStat(route){loadPub().then(()=>{const h=$('#app h2');if(!h||curRoute!==route)return;const t=statText(route);if(!t||$('#app .pstat'))return;h.insertAdjacentHTML('afterend',`<span class="pstat" style="margin:-4px 0 10px">${t}</span>`)})}
 /* 線上資料庫（只有 Cloudflare 網址才有） */
 const apiReady=(location.protocol.startsWith('http')?fetch('/api/health',{cache:'no-store'}).then(r=>r.json()).then(d=>!!d.ok):Promise.resolve(false)).catch(()=>false);
 async function postJSON(url,body,headers){const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json',...(headers||{})},body:JSON.stringify(body)});return r.json()}
@@ -278,8 +289,9 @@ function vHome(){
  const rec=store.get(K.rec,[]);const bz=Math.max(0,...rec.filter(r=>r.type==='檢定'&&r.lang==='zh').map(r=>r.speed));const be=Math.max(0,...rec.filter(r=>r.type==='檢定'&&r.lang==='en').map(r=>r.speed));
  const P=[['keys','先認識鍵盤','指法教室','認識基本鍵位，知道每根手指負責哪些鍵。'],['zhuyin','中文第一步','注音鍵位練習','不用輸入法，直接練注音符號在哪裡。'],['chinese','中文第二步','中打練習','開啟微軟注音，打出語詞和成語。'],['punct','檢定必備','標點符號教室','學會用快速鍵打出，。、：？！「」。'],['english','英文','英打練習','字母、單字、句子，一鍵一鍵練正確。'],['exam','挑戰自己','打字檢定','3、5、8、10 分鐘計時，算出速度與等級。']];
  app.innerHTML=`<div class="hero"><div class="card"><h1>中英文打字練習</h1><p class="lead">國小 3–6 年級適用。先練指法，再練中英打，最後挑戰檢定。眼睛看螢幕，手指放在基本鍵上。</p>${kbHTML(true)}${legendHTML()}</div>
- <div class="paths">${P.map(p=>`<button class="path" data-go="${p[0]}"><small>${p[1]}</small><h3>${p[2]}</h3><p>${p[3]}</p></button>`).join('')}</div>
+ <div class="paths">${P.map(p=>`<button class="path" data-go="${p[0]}"><small>${p[1]}</small><h3>${p[2]}</h3><p>${p[3]}</p><span class="pstat" data-ps="${p[0]}"></span></button>`).join('')}</div>
  <div class="card"><h3>我的最佳檢定成績（這台電腦）</h3><div class="stats" style="margin:0"><div class="stat"><b>${bz}</b><span>中打 字/分</span></div><div class="stat"><b>${be}</b><span>英打 WPM</span></div><div class="stat"><b>${rec.length}</b><span>練習與檢定次數</span></div></div></div></div>`;
+ loadPub(true).then(()=>$$('[data-ps]').forEach(x=>x.textContent=statText(x.dataset.ps)));
 }
 
 /* 指法 */
@@ -763,7 +775,7 @@ if(IS_T)ROUTES.teacher=vTeacherGate;
 function route(){let r=(location.hash||(IS_T?'#teacher':'#home')).slice(1);
  if(cert()&&r!=='exam'&&r!=='classrank'){r='exam';history.replaceState(null,'','#exam')}const fn=ROUTES[r]||vHome;if(cleanup){cleanup();cleanup=null}closeModal();
  $$('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.r===(ROUTES[r]?r:'home')));applyCert();
- curRoute=ROUTES[r]?r:'home';if(curRoute!=='teacher')track('view');fn();window.scrollTo(0,0)}
+ curRoute=ROUTES[r]?r:'home';if(curRoute!=='teacher'){track('view');if(curRoute==='keys'||PRACTICE_ROUTES.includes(curRoute))showPageStat(curRoute)}fn();window.scrollTo(0,0)}
 document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g){if(location.hash.slice(1)===g.dataset.go)route();else location.hash=g.dataset.go}});
 window.addEventListener('hashchange',route);
 setWho();route();

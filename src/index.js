@@ -371,6 +371,23 @@ export default {
       await env.DB.prepare('INSERT INTO usage_events (day, route, event, vid, mode) VALUES (?,?,?,?,?)').bind(day, b.route, b.event, b.vid, b.mode === 'cert' ? 'cert' : 'general').run();
       return json({ ok: true });
     }
+    // 公開統計（首頁與各分頁顯示用），快取 60 秒以減少資料庫負擔
+    if (url.pathname === '/api/stats/public') {
+      const cache = caches.default, key = new Request(url.origin + '/api/stats/public');
+      const hit = await cache.match(key);
+      if (hit) return hit;
+      const total = await env.DB.prepare("SELECT COUNT(DISTINCT vid) AS visitors FROM usage_events").first();
+      const { results } = await env.DB.prepare(`SELECT route, COUNT(DISTINCT CASE WHEN event = 'view' THEN vid END) AS viewers,
+          COUNT(DISTINCT CASE WHEN event = 'start' THEN vid END) AS practicers, SUM(event = 'start') AS starts
+        FROM usage_events GROUP BY route`).all();
+      const routes = {};
+      results.forEach(r => { routes[r.route] = { viewers: r.viewers || 0, practicers: r.practicers || 0, starts: r.starts || 0 }; });
+      const res = new Response(JSON.stringify({ ok: true, visitors: total.visitors || 0, routes }), {
+        headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'public, max-age=60' }
+      });
+      await cache.put(key, res.clone());
+      return res;
+    }
     if (url.pathname === '/api/teacher/stats') {
       if (!(await isTeacher(request, secret))) return json({ ok: false, error: '請先登入教師帳號' }, 401);
       const days = int(url.searchParams.get('days'), 1, 3650) || 7;
