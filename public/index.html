@@ -108,6 +108,14 @@ kbd{display:inline-block;border:1px solid var(--line);border-bottom-width:3px;bo
 .cand span{padding:3px 14px 3px 12px;border-left:3px solid transparent}.cand b{color:var(--mute);font-weight:400;margin-right:10px}.cand .sel{background:var(--soft);border-left-color:light-dark(#1b6b73,#5fc4cc)}
 .note{background:var(--soft);border-left:4px solid var(--acc);padding:10px 14px;border-radius:6px;margin:12px 0}
 /* exam */
+.xbar{position:sticky;top:calc(var(--toph,64px) + 8px);z-index:4;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:14px 0;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;box-shadow:0 8px 20px light-dark(#0000001f,#00000080)}
+.xtime span{display:block;font-size:12px;color:var(--mute)}.xbar .timer{font-size:clamp(30px,4vw,42px)}
+.xstats{display:flex;flex-wrap:wrap;gap:6px}.xstats .stat{padding:4px 10px;min-width:70px}.xstats .stat b{font-size:20px}
+.xact{margin-left:auto;display:flex;gap:8px;align-items:center}#xgate{flex-basis:100%;font-size:12.5px;text-align:right;margin-top:-6px}
+html{scroll-padding-top:calc(var(--toph,64px) + var(--barh,0px) + 24px)}
+@media(max-width:600px){.xbar{padding:8px 10px;gap:6px 10px}.xtime{display:flex;align-items:baseline;gap:6px}.xbar .timer{font-size:26px}.xact{margin-left:auto}.xact .btn{min-height:38px;padding:6px 12px}
+ .xstats{order:3;flex-basis:100%;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}.xstats .stat{min-width:0;padding:3px 6px}.xstats .stat b{font-size:16px}.xstats .stat span{font-size:11px}#xgate{order:4;text-align:left;margin-top:0;font-size:11.5px}}
+@media(max-width:700px){.top{position:static}}
 .timer{font-size:clamp(40px,6vw,60px);font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
 .ln{margin-bottom:12px}
 .tg{font-size:var(--xf);line-height:1.7;letter-spacing:.08em;padding:0 13px;word-break:break-all;white-space:pre-wrap}
@@ -138,7 +146,7 @@ a.btn{display:inline-flex;align-items:center;text-decoration:none;color:var(--in
 .scroll{overflow-x:auto}
 .modal{position:fixed;inset:0;background:#0007;display:none;place-items:center;z-index:20;padding:16px}
 .modal.open{display:grid}.modal .card{max-width:440px;width:100%;margin:0}
-@media(max-width:600px){table{font-size:14px}.tx{font-size:22px}.tg{font-size:19px}nav a{padding:6px 9px;font-size:14px}}
+@media(max-width:600px){table{font-size:14px}.tx{font-size:22px}nav a{padding:6px 9px;font-size:14px}}
 @media(prefers-reduced-motion:reduce){.k,.shake{transition:none;animation:none}}
 </style>
 </head>
@@ -410,7 +418,7 @@ function vChinese(){
  ci.addEventListener('paste',e=>e.preventDefault());
  $('#cskip').onclick=()=>{if(done)return;start();bad++;next(false);ci.focus()};$('#crs').onclick=reset;
  segBind('cs',v=>{set=v;reset()});segBind('ct',v=>{mins=parseInt(v);reset()});$('#czh').onchange=e=>{showZy=e.target.checked;show()};
- reset();cleanup=()=>clearInterval(timer);
+ reset();cleanup=()=>{clearInterval(timer);bro.disconnect();document.documentElement.style.removeProperty('--barh')};
 }
 
 /* 標點符號 */
@@ -478,11 +486,14 @@ function countChars(a,ver){return a.lines.reduce((n,l)=>n+(a.lang==='zh'?lineTex
 function runExam(a){
  const zh=a.lang==='zh',ver=zh?ex.ver:'',limit=ex.mins*60;let t0=0,timer,done=false;
  const L=a.lines.map(l=>{const d=lineText(l,a.lang,ver);return{d,t:zh?[...d.replace(/\s/g,'')]:[...d]}});
- app.innerHTML=`<div class="card"><div class="row" style="justify-content:space-between"><div><h2 style="margin:0">${esc(a.title)}</h2><span class="muted">${zh?'中打':'英打'}・${esc(a.grade)}${zh?'・'+ver:''}・${ex.mins} 分鐘・共 ${countChars(a,ver)} ${zh?'字':'字元'}</span></div><div class="timer" id="xt">${fmtT(limit)}</div></div>
- <div class="stats" style="margin-top:12px">${statHTML([['x1','正確'],['x2','錯誤'],['x3','未打'],['x4',zh?'速度 字/分':'速度 WPM']])}</div>
+ app.innerHTML=`<div class="card"><div class="row" style="justify-content:space-between"><div><h2 style="margin:0">${esc(a.title)}</h2><span class="muted">${zh?'中打':'英打'}・${esc(a.grade)}${zh?'・'+ver:''}・${ex.mins} 分鐘・共 ${countChars(a,ver)} ${zh?'字':'字元'}</span></div></div>
+ <div class="xbar" id="xbar"><div class="xtime"><span>剩餘時間</span><div class="timer" id="xt">${fmtT(limit)}</div></div>
+ <div class="xstats">${statHTML([['x5','已完成'],['x1','正確'],['x2','錯誤'],['x3','未打'],['x4',zh?'速度 字/分':'速度 WPM']])}</div>
+ <div class="xact"><button class="btn pri" id="xsub" disabled>交卷</button><button class="btn" id="xquit">放棄</button></div><span class="muted" id="xgate"></span></div>
  <p class="note" style="margin:0 0 14px">打完一行後，按 <kbd>Enter</kbd> 鍵，可跳下一行。藍色底線是目前要打的字。<br>提醒：字底下還有<b>虛線</b>時，第一次按 <kbd>Enter</kbd> 是「確定選字」，虛線消失後再按一次 <kbd>Enter</kbd> 才會跳到下一行。</p><div id="xres"></div>
  <div id="lines">${L.map((l,i)=>`<div class="ln"><div class="tg ${zh?'':'en'}" id="tg${i}">${[...l.d].map(c=>c===' '&&zh?'<span class="gap"> </span>':`<span class="c">${esc(c)}</span>`).join('')}</div><input type="text" class="ip ${zh?'':'en'}" id="ip${i}" data-i="${i}" autocomplete="off" autocapitalize="off" spellcheck="false"></div>`).join('')}</div>
- <div class="row"><button class="btn pri" id="xsub" disabled>交卷</button><button class="btn" id="xquit">放棄，回到選單</button><span class="muted" id="xgate"></span></div></div>`;
+ </div>`;
+ const bar=$('#xbar'),bro=new ResizeObserver(()=>document.documentElement.style.setProperty('--barh',bar.offsetHeight+'px'));bro.observe(bar);
  L.forEach((l,i)=>{l.sp=$$('#tg'+i+' .c');l.ip=$('#ip'+i)});
  const TOTAL=L.reduce((n,l)=>n+l.t.length,0);let prog=0;
  const elapsed=()=>t0?(Date.now()-t0)/1000:0;
@@ -492,7 +503,7 @@ function runExam(a){
  const evalAll=()=>{let ok=0,wr=0,miss=0,done_=0;L.forEach(l=>{let u=[...l.ip.value];if(zh)u=u.filter(c=>!/\s/.test(c));const {hit,count}=lcs(l.t,u);
   l.sp.forEach((s,i)=>s.className='c '+(hit[i]?'ok':i<u.length?'bad':i===u.length&&document.activeElement===l.ip?'cur':''));
   ok+=count;wr+=u.length-count;miss+=Math.max(0,l.t.length-u.length);done_+=Math.min(u.length,l.t.length);l.full=u.length>=l.t.length});
-  prog=done_/TOTAL;gate();
+  prog=done_/TOTAL;$('#x5').textContent=Math.floor(prog*100)+'%';gate();
   const sec=t0?Math.max(1,(Date.now()-t0)/1000):1;const sp=Math.floor((zh?ok:ok/5)/sec*60);
   $('#x1').textContent=ok;$('#x2').textContent=wr;$('#x3').textContent=miss;$('#x4').textContent=t0?sp:0;return{ok,wr,miss,sp,sec}};
  const start=()=>{if(t0||done)return;t0=Date.now();track('start');timer=setInterval(()=>{const left=limit-(Date.now()-t0)/1000;$('#xt').textContent=fmtT(Math.max(0,left));gate();if(left<=0)finish('時間到')},250)};
@@ -508,11 +519,11 @@ function runExam(a){
   ip.addEventListener('input',e=>{start();if(!e.isComposing){const r=evalAll();if(L.every(x=>x.full))finish('全部打完了')}});
   ip.addEventListener('compositionend',()=>{evalAll();if(L.every(x=>x.full))finish('全部打完了')});
   ip.addEventListener('focus',evalAll);
-  ip.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();const n=L[i+1];n?n.ip.focus():$('#xsub').focus()}});
+  ip.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();const n=L[i+1];if(n){n.ip.focus({preventScroll:true});n.ip.closest('.ln').scrollIntoView({block:'center',behavior:'smooth'})}else $('#xsub').focus()}});
   ['paste','drop'].forEach(ev=>ip.addEventListener(ev,e=>e.preventDefault()))});
  $('#xsub').onclick=()=>{if(t0&&canSubmit())finish('已交卷')};
  $('#xquit').onclick=()=>t0&&!done?confirmBox('確定要放棄這次檢定嗎？成績不會保存。',()=>{done=true;clearInterval(timer);vExam()}):(clearInterval(timer),vExam());
- L[0].ip.focus();evalAll();cleanup=()=>clearInterval(timer);
+ L[0].ip.focus();evalAll();cleanup=()=>{clearInterval(timer);bro.disconnect();document.documentElement.style.removeProperty('--barh')};
 }
 
 
@@ -836,6 +847,7 @@ function route(){let r=(location.hash||(IS_T?'#teacher':'#home')).slice(1);
  curRoute=ROUTES[r]?r:'home';if(curRoute!=='teacher'){track('view');if(curRoute==='keys'||PRACTICE_ROUTES.includes(curRoute))showPageStat(curRoute)}fn();window.scrollTo(0,0)}
 document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g){if(location.hash.slice(1)===g.dataset.go)route();else location.hash=g.dataset.go}});
 window.addEventListener('hashchange',route);
+const setTopH=()=>document.documentElement.style.setProperty('--toph',(getComputedStyle($('.top')).position==='sticky'?$('.top').offsetHeight:0)+'px');addEventListener('resize',()=>setTopH());setTopH();new ResizeObserver(setTopH).observe($('.top'));
 setWho();route();
 }
 </script>
