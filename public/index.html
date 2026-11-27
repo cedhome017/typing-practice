@@ -116,8 +116,8 @@ kbd{display:inline-block;border:1px solid var(--line);border-bottom-width:3px;bo
 .xbar.float .xstats{display:grid;grid-template-columns:1fr 1fr;gap:4px;order:0;flex-basis:auto}
 .xbar.float .xstats .stat{min-width:0;padding:3px 8px}.xbar.float .xstats .stat b{font-size:17px}.xbar.float .xstats .stat span{font-size:11px}
 .xbar.float .xstats .stat:not(:first-child):not(:last-child){display:none}
-.xbar.float .xact{margin:0}.xbar.float .xact .btn{min-height:36px;padding:4px 12px;flex:1}.xbar.float .xact .btn:not(.pri){display:none}
-.xbar.float #xgate,.xbar.float #vmsg{display:none}
+.xbar.float .xact{margin:0}.xbar.float .xact .btn{min-height:36px;padding:4px 10px;flex:1;font-size:14px}
+.xbar.float #vmsg{display:none}.xbar.float #xgate{display:block;font-size:11.5px;text-align:left;margin:0;max-width:220px}.xbar.float #xgate:empty{display:none}
 .xbar.float.mini .xstats,.xbar.float.mini .xact{display:none}
 .timer{font-size:clamp(30px,4vw,42px)}
 .xstats{display:flex;flex-wrap:wrap;gap:6px}.xstats .stat{padding:4px 10px;min-width:70px}.xstats .stat b{font-size:20px}
@@ -510,7 +510,7 @@ function runExam(a){
  <p class="note" style="margin:0 0 14px">打完一行後，按 <kbd>Enter</kbd> 鍵，可跳下一行。藍色底線是目前要打的字。<br>提醒：字底下還有<b>虛線</b>時，第一次按 <kbd>Enter</kbd> 是「確定選字」，虛線消失後再按一次 <kbd>Enter</kbd> 才會跳到下一行。</p><div id="xres"></div>
  <div id="lines">${L.map((l,i)=>`<div class="ln"><div class="tg ${zh?'':'en'}" id="tg${i}">${[...l.d].map(c=>c===' '&&zh?'<span class="gap"> </span>':`<span class="c">${esc(c)}</span>`).join('')}</div><input type="text" class="ip ${zh?'':'en'}" id="ip${i}" data-i="${i}" autocomplete="off" autocapitalize="off" spellcheck="false"></div>`).join('')}</div>
  </div>`;
- const bro=floatBar($('#xbar'));
+ const bro=floatBar($('#xbar'),true);
  L.forEach((l,i)=>{l.sp=$$('#tg'+i+' .c');l.ip=$('#ip'+i)});
  const TOTAL=L.reduce((n,l)=>n+l.t.length,0);let prog=0;
  const elapsed=()=>t0?(Date.now()-t0)/1000:0;
@@ -632,6 +632,7 @@ const VOICE_ART=[{"id":"v1","lang":"zh","grade":"語音練習","title":"認識�
 const vv={id:'v1',ver:'含標點'};
 const toFull=t=>t.replace(/,/g,'，').replace(/\?/g,'？').replace(/!/g,'！').replace(/:/g,'：').replace(/;/g,'；').replace(/[“”"]/g,'「').replace(/([^\s])\.(\s|$)/g,'$1。$2');
 function vVoice(){
+ if(cleanup){cleanup();cleanup=null}
  const pool=VOICE_ART.concat(allArticles().filter(a=>a.lang==='zh'&&countChars(a,'含標點')>=400));if(!pool.find(a=>a.id===vv.id))vv.id=pool[0].id;
  if(!vv.per)vv.per=3;if(vv.auto===undefined)vv.auto=true;
  const a=pool.find(x=>x.id===vv.id),sp=vv.ver==='空格版';
@@ -672,7 +673,9 @@ function vVoice(){
   g.ip.addEventListener('input',()=>{if(done)return;start();if(!raf)raf=requestAnimationFrame(calc);
    clearTimeout(advT);if(vv.auto)advT=setTimeout(()=>{calc();if(document.activeElement===g.ip&&g.len>=g.t.length*0.9&&GS[gi+1])goto(gi+1);if(!GS[gi+1]&&last.count>=TOTAL)finish()},1200)});
   g.ip.addEventListener('focus',()=>{if(!raf)raf=requestAnimationFrame(calc)});
-  g.ip.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();GS[gi+1]?goto(gi+1):$('#vdone').focus()}});
+  g.ip.addEventListener('keydown',e=>{if(e.key!=='Enter'||e.isComposing||e.keyCode===229)return;
+   const ln=g.ip.value.slice(0,g.ip.selectionStart).split('\n').length;if(ln<G[gi].length)return; /* 還沒到這段最後一行：照常換行 */
+   e.preventDefault();GS[gi+1]?goto(gi+1):$('#vdone').focus()});
   g.ip.addEventListener('paste',e=>e.preventDefault())});
  const finish=()=>{if(done||!t0)return;done=true;clearInterval(timer);clearTimeout(advT);calc();GS.forEach(g=>g.ip.readOnly=true);track('finish');
   const sec=Math.max(1,Math.round((Date.now()-t0)/1000)),spd=Math.floor(last.count/sec*60),acc=last.typed?pct(last.count,last.typed):0;
@@ -688,12 +691,12 @@ function vVoice(){
 
 
 /* 數據列：電腦上固定在頁首下方；平板、手機（或虛擬鍵盤開啟）時改成右上角的小型浮動視窗 */
-function floatBar(bar){
+function floatBar(bar,always){
  const vvp=window.visualViewport,touch=!matchMedia('(any-pointer: fine)').matches;
  bar.insertAdjacentHTML('afterbegin','<button type="button" class="fmin" title="縮小／展開">－</button>');
  const mini=bar.querySelector('.fmin');mini.onclick=()=>{bar.classList.toggle('mini');mini.textContent=bar.classList.contains('mini')?'＋':'－'};
- const place=()=>{const kb=vvp&&vvp.height<innerHeight*0.8,fl=touch||kb;bar.classList.toggle('float',fl);
-  if(fl){bar.style.top=((vvp?vvp.offsetTop:0)+8)+'px';bar.style.right=((vvp?innerWidth-vvp.offsetLeft-vvp.width:0)+8)+'px';document.documentElement.style.setProperty('--barh','0px')}
+ const place=()=>{const kb=vvp&&vvp.height<innerHeight*0.8,fl=always||touch||kb;bar.classList.toggle('float',fl);
+  if(fl){const th=getComputedStyle($('.top')).position==='sticky'?$('.top').offsetHeight:0;bar.style.top=((vvp?vvp.offsetTop:0)+th+8)+'px';bar.style.right=((vvp?innerWidth-vvp.offsetLeft-vvp.width:0)+8)+'px';document.documentElement.style.setProperty('--barh','0px')}
   else{bar.style.top='';bar.style.right='';bar.classList.remove('mini');document.documentElement.style.setProperty('--barh',bar.offsetHeight+'px')}};
  const ro=new ResizeObserver(place);ro.observe(bar);
  if(vvp){vvp.addEventListener('resize',place);vvp.addEventListener('scroll',place)}addEventListener('scroll',place,{passive:true});place();
