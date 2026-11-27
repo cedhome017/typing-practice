@@ -124,6 +124,10 @@ kbd{display:inline-block;border:1px solid var(--line);border-bottom-width:3px;bo
 body.cert-on .who.cert{background:var(--acc);color:#fff}
 .certbar{display:none;background:light-dark(#fff1c2,#4a3a10);border-bottom:1px solid light-dark(#e6c65a,#7a6420);text-align:center;padding:8px 12px;font-weight:700}
 body.cert-on .certbar{display:block}
+.tgrid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:20px;align-items:start}
+@media(max-width:900px){.tgrid{grid-template-columns:minmax(0,1fr)}}
+.aip{border:1px solid var(--line);border-radius:12px;padding:12px 16px;background:var(--soft)}.aip summary{cursor:pointer;font-weight:700;font-size:17px}.aip textarea{background:var(--panel)}
+a.btn{display:inline-flex;align-items:center;text-decoration:none;color:var(--ink)}
 .pins{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .pinc{border:1px dashed var(--ink);border-radius:8px;padding:10px;text-align:center}.pinc b{display:block;font-size:26px;letter-spacing:.15em}
 #printarea{display:none}
@@ -710,6 +714,48 @@ function renderTExams(){const box=$('#tex');if(!box)return;const PER=20;
  $$('[data-xdel]',box).forEach(bt=>bt.onclick=()=>confirmBox('確定刪除這筆成績？刪除後無法復原。',async()=>{await fetch('/api/teacher/exams/'+bt.dataset.xdel,{method:'DELETE',headers:{authorization:'Bearer '+ss.get(TK)}});loadTExams()}));
 }
 
+
+/* 自訂文章：AI 提示詞產生器、貼上 AI 結果自動整理 */
+function buildPrompt(){const mode=$('#pm').value,lang=$('#pl').value,g=$('#pg').value,n=+$('#pn').value,topic=$('#pt').value.trim();
+ const yr=g==='中年級'?'三、四':'五、六';
+ if(lang==='zh')return[
+  mode==='new'?`請幫我寫一篇給臺灣國小${g}（${yr}年級）學生使用的「中文打字檢定」文章。`:`請把我在最後提供的內容，改寫成給臺灣國小${g}（${yr}年級）學生使用的「中文打字檢定」文章，保留原本的重點。`,
+  mode==='new'?`主題：${topic||'由你決定，貼近國小學生的校園或日常生活'}`:'',
+  '','寫作要求：',
+  `1. 全文約 ${n} 字（含標點符號），誤差在 10% 以內。`,
+  `2. 使用繁體中文與臺灣用語，以國小${g}常見的字詞為主，避免罕見字、異體字。`,
+  '3. 內容正向、適合學生閱讀，可以安排一兩句人物對話。',
+  '4. 只能使用這些全形標點：，。、；：？！「」。不要使用『』、（）、破折號、刪節號、表情符號、英文字母。',
+  '5. 數字請用國字書寫，例如「三十」，不要用阿拉伯數字。',
+  '6. 每一句（或兩個短句）獨立成一行，每行約 15～30 字；行與行之間不要空行。',
+  '7. 不要加段落編號、項目符號、粗體或任何 Markdown 符號。',
+  '','輸出格式（只輸出以下內容，不要加任何說明）：','標題：（文章標題，十個字以內）','（第一行內文）','（第二行內文）','……',
+  mode==='rw'?`\n以下是我提供的內容：\n${topic||'（請在這裡貼上內容）'}`:''].filter((x,i)=>x!==''||i>0).join('\n').replace(/\n{3,}/g,'\n\n');
+ return[
+  mode==='new'?`Please write an English typing-test passage for ${g==='中年級'?'grade 3–4':'grade 5–6'} elementary school students in Taiwan (English learners).`:`Please rewrite the content I give at the end into an English typing-test passage for ${g==='中年級'?'grade 3–4':'grade 5–6'} elementary school students in Taiwan (English learners). Keep the main ideas.`,
+  mode==='new'?`Topic: ${topic||'your choice, about school or daily life'}`:'',
+  '','Requirements:',
+  `1. About ${Math.round(n/2)} characters in total (including spaces), within 10%.`,
+  `2. Use simple, common words and short sentences suitable for ${g==='中年級'?'beginners':'young learners'}.`,
+  '3. Positive content suitable for children.',
+  '4. Only use these punctuation marks: , . ? ! \' "  — use straight quotes only; no curly quotes, dashes, emojis or special symbols.',
+  '5. Put each sentence on its own line, about 30–55 characters per line. No blank lines between lines.',
+  '6. No numbering, bullet points, bold text or Markdown.',
+  '','Output format (output only this, no explanations):','Title: (title, within 5 words)','(line 1)','(line 2)','...',
+  mode==='rw'?`\nHere is my content:\n${topic||'(paste your content here)'}`:''].join('\n').replace(/\n{3,}/g,'\n\n');
+}
+function setupPrompt(){const upd=()=>{$('#ptl').textContent=$('#pm').value==='new'?'主題（可空白，讓 AI 自己決定）':'要改寫的內容（貼上文字、課文或重點）';$('#pt').placeholder=$('#pm').value==='new'?'例如：校外教學、運動會、照顧植物':'在這裡貼上要改寫的內容……';$('#pout').value=buildPrompt()};
+ ['pm','pl','pg','pn'].forEach(id=>$('#'+id).onchange=()=>{if(id==='pl'){$('#tl').value=$('#pl').value}if(id==='pg'){$('#tgd').value=$('#pg').value}upd()});$('#pt').oninput=upd;upd();
+ $('#pcopy').onclick=()=>navigator.clipboard.writeText($('#pout').value).then(()=>$('#pmsg').textContent='已複製，貼到 AI 對話框即可。',()=>{$('#pout').select();$('#pmsg').textContent='請按 Ctrl＋C 複製已選取的提示詞。'});
+ const tt=$('#tt'),cnt=()=>{const ls=tt.value.split('\n').map(x=>x.trim()).filter(Boolean);const n=ls.join('').replace(/\s/g,'').length;$('#tcount').textContent=ls.length?`${ls.length} 行・${$('#tl').value==='zh'?n+' 字':ls.join('').length+' 字元'}`:''};
+ const clean=()=>{let ls=tt.value.replace(/\r/g,'').split('\n').map(x=>x.replace(/\*\*|__/g,'').replace(/^\s*#+\s*/,'').replace(/^\s*(?:[-*•]|\d+[.、)])\s*/,'').trim()).filter(Boolean);
+  const m=ls[0]&&ls[0].match(/^(?:標題|題目|Title)\s*[:：]\s*(.+)$/i);if(m){$('#ta').value=m[1].replace(/[「」《》"]/g,'').slice(0,30);ls=ls.slice(1)}
+  if($('#tl').value==='zh')ls=ls.map(x=>x.replace(/,/g,'，').replace(/\?/g,'？').replace(/!/g,'！').replace(/:/g,'：').replace(/;/g,'；').replace(/[“”]/g,m=>m==='“'?'「':'」'));
+  else ls=ls.map(x=>x.replace(/[“”]/g,'"').replace(/[‘’]/g,"'"));
+  tt.value=ls.join('\n');cnt();if(m)$('#tmsg').textContent='已自動填入標題並整理內文，請確認後按「新增文章」。'};
+ tt.addEventListener('paste',()=>setTimeout(clean,0));tt.addEventListener('input',cnt);$('#tl').addEventListener('change',cnt);
+}
+
 /* 教師 */
 function vTeacher(){
  const draw=()=>{const cus=store.get(K.art,[]);
@@ -721,11 +767,22 @@ function vTeacher(){
   <label class="f" id="cdig-w">座號位數<select id="cdig"><option value="2">2 位（01）</option><option value="1">1 位（1）</option><option value="3">3 位（001）</option></select></label><button class="btn pri" id="cadd">建立班級</button><span class="muted" id="cmsg"></span></div>
   <div id="tcls" style="margin-top:16px"><p class="muted">載入中…</p></div></div><div id="cdetail"></div></section>
   <section data-tab="自訂文章"><div class="card"><h2>教師：自訂檢定文章</h2><p class="lead">新增的文章會出現在「檢定」的文章清單。資料存在這台電腦的瀏覽器；要放到其他電腦，請用下方的匯出／匯入。</p>
+  <div class="tgrid"><div>
   <div class="row" style="gap:12px;margin-bottom:10px"><label class="f">標題<input type="text" id="ta" maxlength="30" placeholder="例如：我的志願"></label>
   <label class="f">語言<select id="tl"><option value="zh">中文</option><option value="en">英文</option></select></label>
   <label class="f">年段<select id="tgd"><option>中年級</option><option>高年級</option></select></label></div>
-  <label class="f">內文（每一行就是檢定時的一行，建議每行 15–30 字）<textarea id="tt" placeholder="第一行……&#10;第二行……"></textarea></label>
-  <div class="row" style="margin-top:10px"><button class="btn pri" id="tadd">新增文章</button><span class="muted" id="tmsg"></span></div></div>
+  <label class="f">內文（每一行就是檢定時的一行，建議每行 15–30 字）<textarea id="tt" style="min-height:320px" placeholder="第一行……&#10;第二行……&#10;&#10;也可以直接貼上 AI 產生的結果，第一行是「標題：……」會自動填入標題。"></textarea></label>
+  <div class="row" style="margin-top:10px"><button class="btn pri" id="tadd">新增文章</button><span class="muted" id="tcount"></span><span class="muted" id="tmsg"></span></div></div>
+  <details class="aip" open><summary>用生成式 AI 產生文章（提示詞）</summary>
+  <p class="muted">設定好條件後按「複製提示詞」，貼到 ChatGPT、Gemini 等，再把 AI 的回答整段貼回左邊的「內文」。</p>
+  <div class="row" style="gap:10px"><label class="f">做法<select id="pm"><option value="new">依主題產生新文章</option><option value="rw">改寫我提供的內容</option></select></label>
+  <label class="f">語言<select id="pl"><option value="zh">中文</option><option value="en">英文</option></select></label>
+  <label class="f">年段<select id="pg"><option>中年級</option><option>高年級</option></select></label>
+  <label class="f">長度<select id="pn"><option value="200">約 200 字</option><option value="400" selected>約 400 字</option><option value="700">約 700 字</option></select></label></div>
+  <label class="f" style="margin-top:8px"><span id="ptl">主題（可空白，讓 AI 自己決定）</span><textarea id="pt" style="min-height:70px" placeholder="例如：校外教學、運動會、照顧植物"></textarea></label>
+  <label class="f" style="margin-top:8px">提示詞（可以再自行修改）<textarea id="pout" style="min-height:260px;font-size:14px"></textarea></label>
+  <div class="row" style="margin-top:8px"><button class="btn sm pri" id="pcopy">複製提示詞</button><a class="btn sm" href="https://chatgpt.com/" target="_blank" rel="noopener">開啟 ChatGPT</a><a class="btn sm" href="https://gemini.google.com/" target="_blank" rel="noopener">開啟 Gemini</a><span class="muted" id="pmsg"></span></div>
+  </details></div></div>
   <div class="card"><h3>已新增的文章（${cus.length} 篇）</h3>${cus.length?`<table><tbody>${cus.map((a,i)=>`<tr><td><b>${esc(a.title)}</b><br><span class="muted">${a.lang==='zh'?'中文':'英文'}・${esc(a.grade)}・${countChars(a,'含標點')} ${a.lang==='zh'?'字':'字元'}</span></td><td style="text-align:right"><button class="btn sm" data-del="${i}">刪除</button></td></tr>`).join('')}</tbody></table>`:'<p class="muted">目前沒有自訂文章。</p>'}</div>
   <div class="card"><h3>匯出／匯入</h3><p class="muted">按「匯出」會把自訂文章放進下方文字框並複製；在另一台電腦貼上後按「匯入」。</p><textarea id="tio" placeholder="[ ... ]"></textarea><div class="row" style="margin-top:10px"><button class="btn" id="texp">匯出</button><button class="btn" id="timp">匯入</button><span class="muted" id="iomsg"></span></div></div></section>
   <section data-tab="一般排行榜管理"><div class="card"><h3>一般排行榜管理（最近 200 筆，不含認證成績）</h3><p class="muted">發現不當暱稱或異常成績時，可以在這裡刪除。</p>
@@ -743,6 +800,7 @@ function vTeacher(){
   $('#cadd').onclick=async()=>{const name=$('#cn').value.trim(),count=+$('#cnum').value||0;if(!name){$('#cmsg').textContent='請輸入班級名稱';return}
    const rule=$('#cplen').value==='rule';if(rule&&count&&!$('#cpref').value.trim()){$('#cmsg').textContent='請輸入前綴，例如 501';return}
    const d=await tApi('/api/teacher/classes','POST',rule?{name,count,rulePrefix:$('#cpref').value.trim(),seatDigits:+$('#cdig').value}:{name,count,pinLength:+$('#cplen').value});$('#cmsg').textContent=d.ok?(count?`已建立「${name}」，共 ${count} 個座號。`:`已建立「${name}」，請在下方匯入座號與代碼。`):d.error;if(d.ok){$('#cn').value='';$('#cnum').value='';loadClasses();showStudents(d.id,name)}};
+  setupPrompt();
   $('#tadd').onclick=()=>{const title=$('#ta').value.trim(),lines=$('#tt').value.split('\n').map(s=>s.trim()).filter(Boolean);if(!title||!lines.length){$('#tmsg').textContent='請填寫標題和內文。';return}
    cus.push({id:'c'+Date.now(),lang:$('#tl').value,grade:$('#tgd').value,title,lines});store.set(K.art,cus);draw();$('#tmsg').textContent='已新增「'+title+'」。'};
   $$('[data-del]').forEach(b=>b.onclick=()=>confirmBox('確定刪除「'+cus[b.dataset.del].title+'」？',()=>{cus.splice(+b.dataset.del,1);store.set(K.art,cus);draw()}));
